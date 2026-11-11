@@ -1,3 +1,4 @@
+import { Banknote, Pencil, Phone, Plus, Trash2, UserCheck, UserCog } from 'lucide-react';
 import { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { PageHead, Modal, Field, StatCard } from '../components/UI';
@@ -33,14 +34,14 @@ export default function Staff() {
 
   return (
     <div>
-      <PageHead title="Staff" subtitle="Employees, roles & attendance">
-        <button className="btn btn-primary" onClick={() => setEdit(blank)}>+ Add Staff</button>
+      <PageHead icon={UserCog} title="Staff" subtitle="Employees, roles & attendance">
+        <button className="btn btn-primary" onClick={() => setEdit(blank)}><Plus size={16} /> Add Staff</button>
       </PageHead>
 
-      <div className="stats">
-        <StatCard icon="🧑‍💼" label="Active Staff" value={active.length} tone="blue" />
-        <StatCard icon="✅" label={`Present (${date === todayStr() ? 'today' : date})`} value={`${present}/${active.length}`} tone="green" />
-        <StatCard icon="💵" label="Monthly Payroll" value={money(payroll, cur)} tone="orange" />
+      <div className="stats stagger">
+        <StatCard icon={UserCog} label="Active Staff" value={active.length} tone="blue" />
+        <StatCard icon={UserCheck} label={`Present (${date === todayStr() ? 'today' : date})`} value={`${present}/${active.length}`} tone="green" />
+        <StatCard icon={Banknote} label="Monthly Payroll" value={payroll} format={(v) => money(Math.round(v), cur)} tone="orange" />
       </div>
 
       <div className="toolbar">
@@ -54,7 +55,7 @@ export default function Staff() {
         columns={[
           { key: 'name', label: 'Name', render: (s) => <><b>{s.name}</b>{!s.active && <span className="badge badge-muted ml">Inactive</span>}</> },
           { key: 'role', label: 'Role', render: (s) => <span className="badge badge-info">{s.role}</span> },
-          { key: 'phone', label: 'Phone', render: (s) => <a href={`tel:${s.phone}`}>{s.phone}</a> },
+          { key: 'phone', label: 'Phone', render: (s) => <a className="flex-c" href={`tel:${s.phone}`}><Phone size={13} /> {s.phone}</a> },
           { key: 'salary', label: 'Salary', render: (s) => money(s.salary, cur) },
           { key: 'month', label: 'Days (month)', render: (s) => monthPresent(s) },
           {
@@ -70,8 +71,8 @@ export default function Staff() {
         ]}
         actions={(s) => (
           <>
-            <button className="btn btn-sm" onClick={() => setEdit(s)}>Edit</button>
-            <button className="btn btn-sm btn-danger-ghost" onClick={() => confirm(`Delete ${s.name}?`) && remove('staff', s.id)}>✕</button>
+            <button className="btn btn-sm" onClick={() => setEdit(s)}><Pencil size={13} /> Edit</button>
+            <button className="btn btn-sm btn-danger-ghost" onClick={() => confirm(`Delete ${s.name}?`) && remove('staff', s.id)} title="Delete"><Trash2 size={14} /></button>
           </>
         )}
       />

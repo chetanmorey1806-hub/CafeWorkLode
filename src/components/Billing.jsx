@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Printer, Banknote, Smartphone, CreditCard, Check, ReceiptText, Wallet } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Modal, Field } from './UI';
 import { money, orderTotals, fmtDateTime } from '../utils/helpers';
@@ -69,11 +70,12 @@ export function ReceiptModal({ order, onClose }) {
   return (
     <Modal
       title={`Bill #${order.no}`}
+      icon={ReceiptText}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose}>Close</button>
-          <button className="btn btn-primary" onClick={() => printReceipt(order)}>🖨️ Print</button>
+          <button className="btn btn-primary" onClick={() => printReceipt(order)}><Printer size={16} /> Print</button>
         </>
       }
     >
@@ -112,11 +114,12 @@ export function PaymentModal({ order, onClose, onPaid }) {
   return (
     <Modal
       title={`Payment · Bill #${order.no}`}
+      icon={Wallet}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn btn-success" onClick={pay}>✔ Confirm {money(t.total, cur)}</button>
+          <button className="btn btn-success" onClick={pay}><Check size={16} /> Confirm {money(t.total, cur)}</button>
         </>
       }
     >
@@ -150,8 +153,8 @@ export function PaymentModal({ order, onClose, onPaid }) {
 
       <div className="field"><span>Payment method</span></div>
       <div className="seg">
-        {[['cash', '💵 Cash'], ['upi', '📱 UPI'], ['card', '💳 Card']].map(([k, l]) => (
-          <button key={k} className={`seg-btn ${method === k ? 'active' : ''}`} onClick={() => setMethod(k)}>{l}</button>
+        {[['cash', 'Cash', Banknote], ['upi', 'UPI', Smartphone], ['card', 'Card', CreditCard]].map(([k, l, I]) => (
+          <button key={k} className={`seg-btn ${method === k ? 'active' : ''}`} onClick={() => setMethod(k)}><I size={16} /> {l}</button>
         ))}
       </div>
 

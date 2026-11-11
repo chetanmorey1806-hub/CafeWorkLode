@@ -1,6 +1,7 @@
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, IndianRupee, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useStore } from '../context/StoreContext';
-import { PageHead, Modal, Field, StatCard } from '../components/UI';
+import { PageHead, Modal, Field, StatCard, SearchInput } from '../components/UI';
 import DataTable from '../components/DataTable';
 import { money, todayStr } from '../utils/helpers';
 
@@ -42,18 +43,18 @@ export default function Inventory() {
 
   return (
     <div>
-      <PageHead title="Inventory" subtitle="Track raw material & supplies">
-        <button className="btn btn-primary" onClick={() => setEdit(blank)}>+ Add Item</button>
+      <PageHead icon={Package} title="Inventory" subtitle="Track raw material & supplies">
+        <button className="btn btn-primary" onClick={() => setEdit(blank)}><Plus size={16} /> Add Item</button>
       </PageHead>
 
-      <div className="stats">
-        <StatCard icon="📦" label="Total Items" value={state.inventory.length} tone="blue" />
-        <StatCard icon="⚠️" label="Low Stock" value={low} tone="red" />
-        <StatCard icon="💰" label="Stock Value" value={money(value, cur)} tone="green" />
+      <div className="stats stagger">
+        <StatCard icon={Package} label="Total Items" value={state.inventory.length} tone="blue" />
+        <StatCard icon={AlertTriangle} label="Low Stock" value={low} tone="red" />
+        <StatCard icon={IndianRupee} label="Stock Value" value={value} format={(v) => money(Math.round(v), cur)} tone="green" />
       </div>
 
       <div className="toolbar">
-        <input className="search" placeholder="🔍 Search" value={q} onChange={(e) => setQ(e.target.value)} />
+        <SearchInput icon={Search} className="search" placeholder="Search stock" value={q} onChange={(e) => setQ(e.target.value)} />
         <label className="check"><input type="checkbox" checked={onlyLow} onChange={(e) => setOnlyLow(e.target.checked)} /> Low stock only</label>
       </div>
 
@@ -70,10 +71,10 @@ export default function Inventory() {
         ]}
         actions={(i) => (
           <>
-            <button className="btn btn-sm btn-success" onClick={() => setStock({ item: i, mode: 'in', qty: '', addExpense: true })}>+ In</button>
-            <button className="btn btn-sm btn-warn" onClick={() => setStock({ item: i, mode: 'out', qty: '' })}>− Use</button>
-            <button className="btn btn-sm" onClick={() => setEdit(i)}>Edit</button>
-            <button className="btn btn-sm btn-danger-ghost" onClick={() => confirm(`Delete ${i.name}?`) && remove('inventory', i.id)}>✕</button>
+            <button className="btn btn-sm btn-success" onClick={() => setStock({ item: i, mode: 'in', qty: '', addExpense: true })} title="Stock in"><ArrowDownToLine size={13} /> In</button>
+            <button className="btn btn-sm btn-warn" onClick={() => setStock({ item: i, mode: 'out', qty: '' })} title="Stock used"><ArrowUpFromLine size={13} /> Use</button>
+            <button className="btn btn-sm" onClick={() => setEdit(i)}><Pencil size={13} /> Edit</button>
+            <button className="btn btn-sm btn-danger-ghost" onClick={() => confirm(`Delete ${i.name}?`) && remove('inventory', i.id)} title="Delete"><Trash2 size={14} /></button>
           </>
         )}
       />

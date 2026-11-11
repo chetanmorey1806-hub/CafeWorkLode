@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Search, UtensilsCrossed, ShoppingBag, Bike, ChefHat, Wallet, ShoppingCart, Minus, Plus, Trash2, X, ChevronRight, StickyNote, SearchX } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
-import { VegDot, Empty } from '../components/UI';
+import { VegDot, Empty, SearchInput } from '../components/UI';
 import { PaymentModal, ReceiptModal } from '../components/Billing';
 import { money, orderTotals, uid, ACTIVE_STATUSES } from '../utils/helpers';
 
@@ -21,6 +22,20 @@ export default function POS() {
   const [cartOpen, setCartOpen] = useState(false);
   const [payOrder, setPayOrder] = useState(null);
   const [receipt, setReceipt] = useState(null);
+  const [bump, setBump] = useState(0);
+  const searchRef = useRef();
+
+  // Press "/" to jump to search
+  useEffect(() => {
+    const h = (e) => {
+      if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
 
   useEffect(() => {
     if (existing) {
@@ -43,6 +58,7 @@ export default function POS() {
 
   const addItem = (m) => {
     if (!m.available) return;
+    setBump((b) => b + 1);
     setItems((prev) => {
       const ex = prev.find((i) => i.menuId === m.id);
       if (ex) return prev.map((i) => (i.menuId === m.id ? { ...i, qty: i.qty + 1 } : i));
@@ -86,7 +102,7 @@ export default function POS() {
   const sendKOT = () => {
     if (!validate()) return;
     const o = save();
-    notify(`KOT sent for order #${o.no} 👨‍🍳`);
+    notify(`KOT sent to kitchen — order #${o.no}`);
     reset();
   };
 
@@ -99,35 +115,36 @@ export default function POS() {
     <div className="pos">
       <section className="pos-menu">
         <div className="pos-toolbar">
-          <input className="search" placeholder="🔍 Search item..." value={q} onChange={(e) => setQ(e.target.value)} />
+          <SearchInput icon={Search} inputRef={searchRef} placeholder="Search items…  (press /)" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <div className="chips">
           {['All', ...state.categories].map((c) => (
             <button key={c} className={`chip ${cat === c ? 'active' : ''}`} onClick={() => setCat(c)}>{c}</button>
           ))}
         </div>
-        <div className="item-grid">
+        <div className="item-grid stagger" key={cat}>
           {filtered.map((m) => (
             <button key={m.id} className={`item-card ${!m.available ? 'disabled' : ''} ${qtyOf(m.id) ? 'in-cart' : ''}`} onClick={() => addItem(m)}>
-              {qtyOf(m.id) > 0 && <span className="item-qty">{qtyOf(m.id)}</span>}
+              {qtyOf(m.id) > 0 && <span key={qtyOf(m.id)} className="item-qty pop">{qtyOf(m.id)}</span>}
               <div className="item-top"><VegDot veg={m.veg} /><span className="item-cat">{m.category}</span></div>
               <div className="item-name">{m.name}</div>
               <div className="item-price">{m.available ? money(m.price, cur) : 'Out of stock'}</div>
             </button>
           ))}
-          {!filtered.length && <Empty text="No items found" />}
+          {!filtered.length && <Empty icon={SearchX} text="No items found" />}
         </div>
       </section>
 
       <section className={`pos-cart ${cartOpen ? 'open' : ''}`}>
         <div className="cart-head">
           <h3>{existing ? `Edit Order #${existing.no}` : 'Current Order'}</h3>
-          <button className="icon-btn cart-close" onClick={() => setCartOpen(false)}>✕</button>
+          <span className="cart-count">{count} items</span>
+          <button className="icon-btn cart-close" onClick={() => setCartOpen(false)}><X size={18} /></button>
         </div>
 
         <div className="seg">
-          {[['dine-in', '🍽️ Dine-in'], ['takeaway', '🥡 Takeaway'], ['delivery', '🛵 Delivery']].map(([k, l]) => (
-            <button key={k} className={`seg-btn ${type === k ? 'active' : ''}`} onClick={() => setType(k)}>{l}</button>
+          {[['dine-in', 'Dine-in', UtensilsCrossed], ['takeaway', 'Takeaway', ShoppingBag], ['delivery', 'Delivery', Bike]].map(([k, l, I]) => (
+            <button key={k} className={`seg-btn ${type === k ? 'active' : ''}`} onClick={() => setType(k)}><I size={15} /> {l}</button>
           ))}
         </div>
 
@@ -146,18 +163,18 @@ export default function POS() {
         </div>
 
         <div className="cart-items">
-          {!items.length && <Empty icon="🛒" text="Tap items to add them" />}
+          {!items.length && <Empty icon={ShoppingCart} text="Tap items to add them" />}
           {items.map((i) => (
-            <div className="cart-item" key={i.menuId}>
+            <div className="cart-item slide-in" key={i.menuId}>
               <div className="ci-main">
                 <div className="ci-name">{i.name}</div>
                 <div className="ci-price">{money(i.price, cur)} × {i.qty} = <b>{money(i.price * i.qty, cur)}</b></div>
-                <input className="ci-note" placeholder="Note (less sugar, extra hot...)" value={i.note} onChange={(e) => setNote(i.menuId, e.target.value)} />
+                <SearchInput icon={StickyNote} className="ci-note" placeholder="Note (less sugar, extra hot…)" value={i.note} onChange={(e) => setNote(i.menuId, e.target.value)} />
               </div>
               <div className="qty">
-                <button onClick={() => changeQty(i.menuId, -1)}>−</button>
-                <span>{i.qty}</span>
-                <button onClick={() => changeQty(i.menuId, 1)}>+</button>
+                <button onClick={() => changeQty(i.menuId, -1)} aria-label="Decrease">{i.qty === 1 ? <Trash2 size={14} /> : <Minus size={14} />}</button>
+                <span key={i.qty} className="pop">{i.qty}</span>
+                <button onClick={() => changeQty(i.menuId, 1)} aria-label="Increase"><Plus size={14} /></button>
               </div>
             </div>
           ))}
@@ -166,18 +183,19 @@ export default function POS() {
         <div className="cart-foot">
           <div className="r-row"><span>Subtotal</span><span>{money(t.subtotal, cur)}</span></div>
           <div className="r-row"><span>GST {state.settings.taxPercent}%</span><span>{money(t.tax, cur)}</span></div>
-          <div className="r-row cart-total"><span>Total</span><span>{money(t.total, cur)}</span></div>
+          <div className="r-row cart-total"><span>Total</span><span key={t.total} className="pop">{money(t.total, cur)}</span></div>
           <div className="cart-actions">
             <button className="btn" onClick={reset} disabled={!items.length && !existing}>Clear</button>
-            <button className="btn btn-warn" onClick={sendKOT}>👨‍🍳 KOT</button>
-            <button className="btn btn-success" onClick={payNow}>💰 Pay</button>
+            <button className="btn btn-warn" onClick={sendKOT}><ChefHat size={16} /> KOT</button>
+            <button className="btn btn-success" onClick={payNow}><Wallet size={16} /> Pay</button>
           </div>
         </div>
       </section>
 
       {!cartOpen && (
-        <button className="cart-fab" onClick={() => setCartOpen(true)}>
-          🛒 {count} items · {money(t.total, cur)} <span>View ›</span>
+        <button key={bump} className={`cart-fab ${bump ? 'bump' : ''}`} onClick={() => setCartOpen(true)}>
+          <span className="flex-c"><ShoppingCart size={18} /> {count} items · {money(t.total, cur)}</span>
+          <span className="flex-c">View <ChevronRight size={16} /></span>
         </button>
       )}
 

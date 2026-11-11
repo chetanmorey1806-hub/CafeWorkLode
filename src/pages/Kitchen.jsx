@@ -1,12 +1,13 @@
+import { ArrowRight, CheckCheck, CheckCircle2, ChefHat, Clock3, Flame, StickyNote, Timer } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { PageHead, Empty } from '../components/UI';
 import { minutesAgo } from '../utils/helpers';
 
 const COLS = [
-  { key: 'pending', title: '🕐 New', next: 'preparing', action: 'Start Cooking' },
-  { key: 'preparing', title: '🔥 Preparing', next: 'ready', action: 'Mark Ready' },
-  { key: 'ready', title: '✅ Ready to Serve', next: 'served', action: 'Served' },
+  { key: 'pending', title: 'New', icon: Clock3, next: 'preparing', action: 'Start Cooking' },
+  { key: 'preparing', title: 'Preparing', icon: Flame, next: 'ready', action: 'Mark Ready' },
+  { key: 'ready', title: 'Ready to Serve', icon: CheckCircle2, next: 'served', action: 'Served' },
 ];
 
 export default function Kitchen() {
@@ -21,7 +22,7 @@ export default function Kitchen() {
 
   return (
     <div>
-      <PageHead title="Kitchen Display" subtitle="KOT tickets — move orders across as they progress" />
+      <PageHead icon={ChefHat} title="Kitchen Display" subtitle="KOT tickets — move orders across as they progress" />
       <div className="kds">
         {COLS.map((c) => {
           const orders = state.orders
@@ -29,22 +30,23 @@ export default function Kitchen() {
             .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
           return (
             <div className={`kds-col kds-${c.key}`} key={c.key}>
-              <div className="kds-title">{c.title} <span className="count">{orders.length}</span></div>
-              {!orders.length && <Empty icon="—" text="Nothing here" />}
+              <div className="kds-title"><span className="flex-c"><c.icon size={18} /> {c.title}</span> <span className="count">{orders.length}</span></div>
+              {!orders.length && <Empty icon={CheckCheck} text="Nothing here" />}
               {orders.map((o) => {
                 const mins = minutesAgo(o.createdAt);
                 return (
-                  <div className={`kot ${mins >= 15 && c.key !== 'ready' ? 'late' : ''}`} key={o.id}>
+                  <div className={`kot pop-in ${mins >= 15 && c.key !== 'ready' ? 'late' : ''}`} key={o.id}>
                     <div className="kot-head">
                       <b>#{o.no}</b>
                       <span>{o.type === 'dine-in' ? `Table ${tableName(o.tableId)}` : o.type.toUpperCase()}</span>
-                      <span className="kot-time">{mins}m</span>
+                      <span className="kot-time flex-c"><Timer size={13} /> {mins}m</span>
                     </div>
+                    <div className="kot-progress"><div style={{ width: `${Math.min(100, (mins / 15) * 100)}%` }} /></div>
                     <ul>
                       {o.items.map((i, idx) => (
                         <li key={idx}>
                           <b>{i.qty}×</b> {i.name}
-                          {i.note && <div className="kot-note">📝 {i.note}</div>}
+                          {i.note && <div className="kot-note"><StickyNote size={12} /> {i.note}</div>}
                         </li>
                       ))}
                     </ul>
@@ -55,7 +57,7 @@ export default function Kitchen() {
                         notify(`#${o.no} → ${c.action}`);
                       }}
                     >
-                      {c.action} ›
+                      {c.action} <ArrowRight size={15} />
                     </button>
                   </div>
                 );

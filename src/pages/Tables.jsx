@@ -1,3 +1,4 @@
+import { Armchair, Check, Pencil, Plus, Settings2, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
@@ -29,21 +30,21 @@ export default function Tables() {
 
   return (
     <div>
-      <PageHead title="Tables" subtitle={`${free} free · ${state.tables.length - free} occupied`}>
+      <PageHead icon={Armchair} title="Tables" subtitle={`${free} free · ${state.tables.length - free} occupied`}>
         <button className={`btn ${manage ? 'btn-primary' : ''}`} onClick={() => setManage(!manage)}>
-          {manage ? 'Done' : '⚙️ Manage'}
+          {manage ? <><Check size={16} /> Done</> : <><Settings2 size={16} /> Manage</>}
         </button>
-        <button className="btn btn-primary" onClick={() => setEdit({ name: '', seats: 4 })}>+ Add Table</button>
+        <button className="btn btn-primary" onClick={() => setEdit({ name: '', seats: 4 })}><Plus size={16} /> Add Table</button>
       </PageHead>
 
-      <div className="table-grid">
+      <div className="table-grid stagger">
         {state.tables.map((t) => {
           const o = activeFor(t.id);
           return (
             <div key={t.id} className={`table-tile ${o ? 'busy' : 'free'}`}>
               <button className="tt-main" onClick={() => nav(o ? `/pos/${o.id}` : `/pos?table=${t.id}`)}>
-                <div className="tt-name">{t.name}</div>
-                <div className="tt-seats">🪑 {t.seats} seats</div>
+                <div className="tt-name">{t.name}</div>{o && <span className="tt-pulse" />}
+                <div className="tt-seats flex-c"><Users size={13} /> {t.seats} seats</div>
                 {o ? (
                   <>
                     <div className="tt-amt">{money(orderTotals(o).total, cur)}</div>
@@ -51,13 +52,13 @@ export default function Tables() {
                     <StatusBadge status={o.status} />
                   </>
                 ) : (
-                  <div className="tt-free">Available</div>
+                  <div className="tt-free flex-c"><Plus size={14} /> Available</div>
                 )}
               </button>
               {manage && (
                 <div className="tt-manage">
-                  <button className="btn btn-sm" onClick={() => setEdit(t)}>Edit</button>
-                  <button className="btn btn-sm btn-danger-ghost" onClick={() => del(t)}>Delete</button>
+                  <button className="btn btn-sm" onClick={() => setEdit(t)}><Pencil size={13} /> Edit</button>
+                  <button className="btn btn-sm btn-danger-ghost" onClick={() => del(t)}><Trash2 size={13} /> Delete</button>
                 </div>
               )}
             </div>

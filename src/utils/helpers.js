@@ -40,6 +40,32 @@ export const ORDER_STATUS = {
 
 export const ACTIVE_STATUSES = ['pending', 'preparing', 'ready', 'served'];
 
+/** Short two-tone chime using Web Audio (no audio files needed) */
+let audioCtx;
+export const chime = () => {
+  try {
+    audioCtx ??= new (window.AudioContext || window.webkitAudioContext)();
+    [880, 1320].forEach((f, i) => {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.value = f;
+      const t = audioCtx.currentTime + i * 0.16;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t);
+      o.stop(t + 0.4);
+    });
+  } catch { /* audio not available */ }
+};
+
+export const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+};
+
 export const inRange = (d, range) => {
   const t = new Date(d);
   const now = new Date();

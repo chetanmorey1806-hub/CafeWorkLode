@@ -1,3 +1,4 @@
+import { Pencil, Plus, Tag, Trash2, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { PageHead, Modal, Field, StatCard } from '../components/UI';
@@ -29,13 +30,13 @@ export default function Expenses() {
 
   return (
     <div>
-      <PageHead title="Expenses" subtitle="Track rent, salaries, supplies and more">
-        <button className="btn btn-primary" onClick={() => setEdit({ date: todayStr(), category: 'Supplies', amount: '', note: '' })}>+ Add Expense</button>
+      <PageHead icon={Wallet} title="Expenses" subtitle="Track rent, salaries, supplies and more">
+        <button className="btn btn-primary" onClick={() => setEdit({ date: todayStr(), category: 'Supplies', amount: '', note: '' })}><Plus size={16} /> Add Expense</button>
       </PageHead>
 
-      <div className="stats">
-        <StatCard icon="💸" label="Total" value={money(total, cur)} sub={`${rows.length} entries`} tone="red" />
-        {byCat.slice(0, 3).map(([c, v]) => <StatCard key={c} icon="🏷️" label={c} value={money(v, cur)} tone="orange" />)}
+      <div className="stats stagger">
+        <StatCard icon={Wallet} label="Total" value={total} format={(v) => money(Math.round(v), cur)} sub={`${rows.length} entries`} tone="red" />
+        {byCat.slice(0, 3).map(([c, v]) => <StatCard key={c} icon={Tag} label={c} value={v} format={(x) => money(Math.round(x), cur)} tone="orange" />)}
       </div>
 
       <div className="toolbar">
@@ -62,8 +63,8 @@ export default function Expenses() {
         ]}
         actions={(e) => (
           <>
-            <button className="btn btn-sm" onClick={() => setEdit(e)}>Edit</button>
-            <button className="btn btn-sm btn-danger-ghost" onClick={() => confirm('Delete this expense?') && remove('expenses', e.id)}>✕</button>
+            <button className="btn btn-sm" onClick={() => setEdit(e)}><Pencil size={13} /> Edit</button>
+            <button className="btn btn-sm btn-danger-ghost" onClick={() => confirm('Delete this expense?') && remove('expenses', e.id)} title="Delete"><Trash2 size={14} /></button>
           </>
         )}
       />

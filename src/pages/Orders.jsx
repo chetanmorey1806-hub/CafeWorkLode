@@ -1,7 +1,8 @@
+import { Ban, Bike, ClipboardList, ConciergeBell, Pencil, ReceiptText, Search, ShoppingBag, UtensilsCrossed, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
-import { PageHead, StatusBadge, Empty } from '../components/UI';
+import { PageHead, StatusBadge, Empty, SearchInput } from '../components/UI';
 import { PaymentModal, ReceiptModal } from '../components/Billing';
 import { money, orderTotals, fmtDateTime, inRange, ACTIVE_STATUSES } from '../utils/helpers';
 
@@ -41,7 +42,7 @@ export default function Orders() {
 
   return (
     <div>
-      <PageHead title="Orders" subtitle="Manage running orders and billing history" />
+      <PageHead icon={ClipboardList} title="Orders" subtitle="Manage running orders and billing history" />
 
       <div className="toolbar">
         <div className="seg seg-inline">
@@ -57,13 +58,13 @@ export default function Orders() {
             <option value="all">All time</option>
           </select>
         )}
-        <input className="search" placeholder="Search bill # / customer" value={q} onChange={(e) => setQ(e.target.value)} />
+        <SearchInput icon={Search} className="search" placeholder="Search bill # / customer" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
       {!list.length ? (
-        <Empty text="No orders here" />
+        <Empty icon={ClipboardList} text="No orders here" />
       ) : (
-        <div className="order-grid">
+        <div className="order-grid stagger">
           {list.map((o) => {
             const t = orderTotals(o);
             return (
@@ -71,8 +72,8 @@ export default function Orders() {
                 <div className="oc-head">
                   <div>
                     <b>#{o.no}</b>{' '}
-                    <span className="muted small">
-                      {o.type === 'dine-in' ? `🍽️ ${tableName(o.tableId) || ''}` : o.type === 'takeaway' ? '🥡 Takeaway' : '🛵 Delivery'}
+                    <span className="muted small flex-c">
+                      {o.type === 'dine-in' ? <><UtensilsCrossed size={13} /> Table {tableName(o.tableId) || ''}</> : o.type === 'takeaway' ? <><ShoppingBag size={13} /> Takeaway</> : <><Bike size={13} /> Delivery</>}
                     </span>
                   </div>
                   <StatusBadge status={o.status} />
@@ -87,16 +88,16 @@ export default function Orders() {
                 <div className="oc-actions">
                   {ACTIVE_STATUSES.includes(o.status) && (
                     <>
-                      <button className="btn btn-sm" onClick={() => nav(`/pos/${o.id}`)}>✏️ Edit</button>
+                      <button className="btn btn-sm" onClick={() => nav(`/pos/${o.id}`)}><Pencil size={13} /> Edit</button>
                       {o.status === 'ready' && (
-                        <button className="btn btn-sm" onClick={() => update('orders', o.id, { status: 'served' })}>🍽️ Served</button>
+                        <button className="btn btn-sm" onClick={() => update('orders', o.id, { status: 'served' })}><ConciergeBell size={13} /> Served</button>
                       )}
-                      <button className="btn btn-sm btn-danger-ghost" onClick={() => cancel(o)}>Cancel</button>
-                      <button className="btn btn-sm btn-success" onClick={() => setPayOrder(o)}>💰 Pay</button>
+                      <button className="btn btn-sm btn-danger-ghost" onClick={() => cancel(o)}><Ban size={13} /> Cancel</button>
+                      <button className="btn btn-sm btn-success" onClick={() => setPayOrder(o)}><Wallet size={13} /> Pay</button>
                     </>
                   )}
                   {o.status === 'paid' && (
-                    <button className="btn btn-sm" onClick={() => setReceipt(o)}>🧾 View Bill · {o.paymentMethod?.toUpperCase()}</button>
+                    <button className="btn btn-sm" onClick={() => setReceipt(o)}><ReceiptText size={13} /> View Bill · {o.paymentMethod?.toUpperCase()}</button>
                   )}
                 </div>
               </div>

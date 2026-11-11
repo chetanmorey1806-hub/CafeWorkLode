@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useReducer, useState, useCallback } from 'react';
+import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { seedData } from './seed';
 import { uid, orderTotals } from '../utils/helpers';
 
 const KEY = 'cafe-software-v1';
+const THEME_KEY = 'cafe-theme';
 const StoreContext = createContext(null);
 
 const load = () => {
@@ -10,11 +12,20 @@ const load = () => {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const data = { ...seedData(), ...JSON.parse(raw) };
-      if (data.settings?.cafeName === 'Brew & Bite Cafe') data.settings = { ...data.settings, cafeName: 'Soffity Cafe' };
+      data.settings = { ...seedData().settings, ...data.settings };
+      if (data.settings.cafeName === 'Brew & Bite Cafe') data.settings.cafeName = 'Soffity Cafe';
       return data;
     }
   } catch { /* ignore */ }
   return seedData();
+};
+
+const loadTheme = () => {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    if (t) return t;
+  } catch { /* ignore */ }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 };
 
 function reducer(state, action) {
@@ -42,12 +53,7 @@ function reducer(state, action) {
       const customers = paid.customerId
         ? state.customers.map((c) =>
             c.id === paid.customerId
-              ? {
-                  ...c,
-                  visits: c.visits + 1,
-                  totalSpent: c.totalSpent + total,
-                  points: c.points + Math.floor(total / 100) - (Number(action.patch.redeemPoints) || 0),
-                }
+              ? { ...c, visits: c.visits + 1, totalSpent: c.totalSpent + total, points: c.points + Math.floor(total / 100) }
               : c,
           )
         : state.customers;
@@ -56,12 +62,7 @@ function reducer(state, action) {
     case 'RESET':
       return seedData();
     case 'CLEAR_ALL':
-      return {
-        ...seedData(),
-        orders: [], expenses: [], customers: [], nextOrderNo: 1001,
-        settings: state.settings, menu: state.menu, tables: state.tables,
-        categories: state.categories, staff: state.staff, inventory: state.inventory,
-      };
+      return { ...state, orders: [], expenses: [], customers: [], nextOrderNo: 1001 };
     case 'IMPORT':
       return { ...seedData(), ...action.data };
     default:
@@ -69,23 +70,37 @@ function reducer(state, action) {
   }
 }
 
+const TOAST_ICON = { ok: CheckCircle2, danger: AlertCircle, info: Info };
+
 export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, load);
-  const [toast, setToast] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const [theme, setTheme] = useState(loadTheme);
+  const [locked, setLocked] = useState(() => !!load().settings.lockEnabled);
 
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(state));
   }, [state]);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem(THEME_KEY, theme); } catch { /* ignore */ }
+  }, [theme]);
+
   const notify = useCallback((msg, kind = 'ok') => {
-    setToast({ msg, kind, id: Date.now() });
-    setTimeout(() => setToast(null), 2500);
+    const id = uid();
+    setToasts((t) => [...t.slice(-2), { id, msg, kind }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800);
   }, []);
 
   const api = {
     state,
     dispatch,
     notify,
+    theme,
+    toggleTheme: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')),
+    locked,
+    setLocked,
     add: (col, item) => dispatch({ type: 'ADD', col, item }),
     update: (col, id, patch) => dispatch({ type: 'UPDATE', col, id, patch }),
     remove: (col, id) => dispatch({ type: 'DELETE', col, id }),
@@ -96,7 +111,17 @@ export function StoreProvider({ children }) {
   return (
     <StoreContext.Provider value={api}>
       {children}
-      {toast && <div key={toast.id} className={`toast toast-${toast.kind}`}>{toast.msg}</div>}
+      <div className="toast-stack">
+        {toasts.map((t) => {
+          const Icon = TOAST_ICON[t.kind] || Info;
+          return (
+            <div key={t.id} className={`toast toast-${t.kind}`}>
+              <Icon size={18} />
+              <span>{t.msg}</span>
+            </div>
+          );
+        })}
+      </div>
     </StoreContext.Provider>
   );
 }

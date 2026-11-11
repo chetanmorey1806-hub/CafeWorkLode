@@ -1,3 +1,4 @@
+import { BadgePercent, Banknote, BarChart3, CreditCard, Download, IndianRupee, Landmark, Receipt, Smartphone, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { PageHead, StatCard, Empty } from '../components/UI';
@@ -61,33 +62,33 @@ export default function Reports() {
 
   return (
     <div>
-      <PageHead title="Reports" subtitle="Sales, profit and performance">
+      <PageHead icon={BarChart3} title="Reports" subtitle="Sales, profit and performance">
         <select value={range} onChange={(e) => setRange(e.target.value)}>
           <option value="today">Today</option>
           <option value="week">Last 7 days</option>
           <option value="month">This month</option>
           <option value="all">All time</option>
         </select>
-        <button className="btn" onClick={exportCSV}>⬇️ Export CSV</button>
+        <button className="btn" onClick={exportCSV}><Download size={16} /> Export CSV</button>
       </PageHead>
 
-      <div className="stats">
-        <StatCard icon="💰" label="Revenue" value={money(revenue, cur)} sub={`${paid.length} bills`} tone="green" />
-        <StatCard icon="💸" label="Expenses" value={money(expenses, cur)} tone="red" />
-        <StatCard icon="📈" label="Net Profit" value={money(profit, cur)} sub="after GST & expenses" tone={profit >= 0 ? 'green' : 'red'} />
-        <StatCard icon="🧾" label="Avg Bill" value={money(Math.round(avg), cur)} tone="blue" />
-        <StatCard icon="🏛️" label="GST Collected" value={money(tax, cur)} tone="orange" />
-        <StatCard icon="🏷️" label="Discounts" value={money(discount, cur)} sub={`${cancelled} cancelled orders`} tone="brown" />
+      <div className="stats stagger">
+        <StatCard icon={IndianRupee} label="Revenue" value={revenue} format={(v) => money(Math.round(v), cur)} sub={`${paid.length} bills`} tone="green" />
+        <StatCard icon={Wallet} label="Expenses" value={expenses} format={(v) => money(Math.round(v), cur)} tone="red" />
+        <StatCard icon={TrendingUp} label="Net Profit" value={profit} format={(v) => money(Math.round(v), cur)} sub="after GST & expenses" tone={profit >= 0 ? 'green' : 'red'} />
+        <StatCard icon={Receipt} label="Avg Bill" value={avg} format={(v) => money(Math.round(v), cur)} tone="blue" />
+        <StatCard icon={Landmark} label="GST Collected" value={tax} format={(v) => money(Math.round(v), cur)} tone="orange" />
+        <StatCard icon={BadgePercent} label="Discounts" value={discount} format={(v) => money(Math.round(v), cur)} sub={`${cancelled} cancelled orders`} tone="brown" />
       </div>
 
-      {!paid.length ? <Empty icon="📉" text="No sales in this period" /> : (
-        <div className="grid-dash">
+      {!paid.length ? <Empty icon={TrendingDown} text="No sales in this period" /> : (
+        <div className="grid-dash stagger">
           <div className="card">
             <div className="card-head"><h3>Sales by Category</h3></div>
             {cats.map(([c, v]) => (
               <div className="hbar" key={c}>
                 <span className="hbar-label">{c}</span>
-                <div className="hbar-track"><div className="hbar-fill" style={{ width: `${(v / catMax) * 100}%` }} /></div>
+                <div className="hbar-track"><div className="hbar-fill grow-right" style={{ width: `${(v / catMax) * 100}%` }} /></div>
                 <span className="hbar-val">{money(v, cur)}</span>
               </div>
             ))}
@@ -96,7 +97,7 @@ export default function Reports() {
           <div className="card">
             <div className="card-head"><h3>Payment & Order Type</h3></div>
             <ul className="simple-list">
-              {byPayment.map(([k, v]) => <li key={k}><span className="grow">{k === 'CASH' ? '💵' : k === 'UPI' ? '📱' : '💳'} {k}</span><b>{money(v, cur)}</b></li>)}
+              {byPayment.map(([k, v]) => <li key={k}><span className="grow flex-c"><span className="li-icon">{k === 'CASH' ? <Banknote size={15} /> : k === 'UPI' ? <Smartphone size={15} /> : <CreditCard size={15} />}</span> {k}</span><b>{money(v, cur)}</b></li>)}
             </ul>
             <ul className="simple-list mt">
               {byType.map(([k, v]) => <li key={k}><span className="grow text-cap">{k}</span><b>{money(v, cur)}</b></li>)}
@@ -108,7 +109,7 @@ export default function Reports() {
             <div className="bar-chart small-bars">
               {busy.map((x) => (
                 <div className="bar-col" key={x.h}>
-                  <div className="bar" style={{ height: `${(x.v / hMax) * 100}%` }} title={`${x.v} orders`} />
+                  <div className="bar grow-up" style={{ height: `${(x.v / hMax) * 100}%` }} title={`${x.v} orders`} />
                   <div className="bar-label">{x.h % 12 || 12}{x.h < 12 ? 'a' : 'p'}</div>
                 </div>
               ))}

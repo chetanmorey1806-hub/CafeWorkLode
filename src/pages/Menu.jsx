@@ -1,6 +1,7 @@
+import { Pencil, Plus, Search, Tags, Trash2, UtensilsCrossed } from 'lucide-react';
 import { useState } from 'react';
 import { useStore } from '../context/StoreContext';
-import { PageHead, Modal, Field, VegDot } from '../components/UI';
+import { PageHead, Modal, Field, VegDot, SearchInput } from '../components/UI';
 import DataTable from '../components/DataTable';
 import { money } from '../utils/helpers';
 
@@ -39,13 +40,13 @@ export default function Menu() {
 
   return (
     <div>
-      <PageHead title="Menu" subtitle={`${state.menu.length} items · ${state.categories.length} categories`}>
-        <button className="btn" onClick={() => setCatModal(true)}>🏷️ Categories</button>
-        <button className="btn btn-primary" onClick={() => setEdit({ ...blank, category: state.categories[0] || '' })}>+ Add Item</button>
+      <PageHead icon={UtensilsCrossed} title="Menu" subtitle={`${state.menu.length} items · ${state.categories.length} categories`}>
+        <button className="btn" onClick={() => setCatModal(true)}><Tags size={16} /> Categories</button>
+        <button className="btn btn-primary" onClick={() => setEdit({ ...blank, category: state.categories[0] || '' })}><Plus size={16} /> Add Item</button>
       </PageHead>
 
       <div className="toolbar">
-        <input className="search" placeholder="🔍 Search menu" value={q} onChange={(e) => setQ(e.target.value)} />
+        <SearchInput icon={Search} className="search" placeholder="Search menu" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={cat} onChange={(e) => setCat(e.target.value)}>
           <option>All</option>
           {state.categories.map((c) => <option key={c}>{c}</option>)}
@@ -70,8 +71,8 @@ export default function Menu() {
         ]}
         actions={(m) => (
           <>
-            <button className="btn btn-sm" onClick={() => setEdit(m)}>Edit</button>
-            <button className="btn btn-sm btn-danger-ghost" onClick={() => confirm(`Delete ${m.name}?`) && remove('menu', m.id)}>Delete</button>
+            <button className="btn btn-sm" onClick={() => setEdit(m)}><Pencil size={13} /> Edit</button>
+            <button className="btn btn-sm btn-danger-ghost" onClick={() => confirm(`Delete ${m.name}?`) && remove('menu', m.id)}><Trash2 size={13} /> Delete</button>
           </>
         )}
       />
@@ -94,8 +95,8 @@ export default function Menu() {
           <div className="grid-2">
             <Field label="Type">
               <select value={edit.veg ? 'veg' : 'nonveg'} onChange={(e) => setEdit({ ...edit, veg: e.target.value === 'veg' })}>
-                <option value="veg">🟢 Veg</option>
-                <option value="nonveg">🔴 Non-veg</option>
+                <option value="veg">Veg</option>
+                <option value="nonveg">Non-veg</option>
               </select>
             </Field>
             <Field label="Available">
@@ -109,16 +110,16 @@ export default function Menu() {
       )}
 
       {catModal && (
-        <Modal title="Categories" onClose={() => setCatModal(false)}>
+        <Modal title="Categories" icon={Tags} onClose={() => setCatModal(false)}>
           <div className="row-input">
             <input placeholder="New category" value={newCat} onChange={(e) => setNewCat(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCat()} />
-            <button className="btn btn-primary" onClick={addCat}>Add</button>
+            <button className="btn btn-primary" onClick={addCat}><Plus size={16} /> Add</button>
           </div>
           <ul className="simple-list mt">
             {state.categories.map((c) => (
               <li key={c}>
                 <span className="grow">{c} <span className="muted small">({state.menu.filter((m) => m.category === c).length} items)</span></span>
-                <button className="btn btn-sm btn-danger-ghost" onClick={() => delCat(c)}>Delete</button>
+                <button className="btn btn-sm btn-danger-ghost" onClick={() => delCat(c)}><Trash2 size={13} /> Delete</button>
               </li>
             ))}
           </ul>
