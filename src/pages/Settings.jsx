@@ -7,6 +7,7 @@ import { useStore } from '../context/StoreContext';
 import { PageHead, Field } from '../components/UI';
 import { todayStr, chime } from '../utils/helpers';
 import { seedData } from '../context/seed';
+import { QrSettings, LoyaltySettings } from './SettingsAdvanced';
 
 const Toggle = ({ icon: Icon, title, desc, checked, onChange }) => (
   <div className="pref-row">
@@ -30,7 +31,9 @@ export default function Settings() {
   const s = state.settings;
 
   const save = () => {
-    set('settings', { ...s, ...form, taxPercent: Number(form.taxPercent) || 0 });
+    const keys = ['cafeName', 'address', 'phone', 'gstin', 'taxPercent', 'currency', 'dailyTarget', 'footer'];
+    const picked = Object.fromEntries(keys.filter((k) => k in form).map((k) => [k, form[k]]));
+    set('settings', { ...state.settings, ...picked, taxPercent: Number(form.taxPercent) || 0, dailyTarget: Number(form.dailyTarget) || 0 });
     notify('Settings saved');
   };
   const pref = (patch) => set('settings', { ...s, ...patch });
@@ -89,6 +92,7 @@ export default function Settings() {
             {F('taxPercent', 'GST %', { type: 'number', min: 0 })}
             {F('currency', 'Currency symbol', { maxLength: 3 })}
           </div>
+          {F('dailyTarget', 'Daily sales target (shown on Dashboard)', { type: 'number', min: 0 })}
           {F('footer', 'Bill footer message')}
           <button className="btn btn-primary mt" onClick={save}><Save size={16} /> Save Settings</button>
         </div>
@@ -124,6 +128,11 @@ export default function Settings() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="grid-settings stagger mt-lg">
+        <LoyaltySettings />
+        <QrSettings />
       </div>
     </div>
   );

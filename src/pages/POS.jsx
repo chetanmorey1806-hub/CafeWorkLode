@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, UtensilsCrossed, ShoppingBag, Bike, ChefHat, Wallet, ShoppingCart, Minus, Plus, Trash2, X, ChevronRight, StickyNote, SearchX } from 'lucide-react';
+import { Search, UtensilsCrossed, ShoppingBag, Bike, ChefHat, Wallet, ShoppingCart, Minus, Plus, Trash2, X, ChevronRight, StickyNote, SearchX, Flame, Sparkles } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { VegDot, Empty, SearchInput } from '../components/UI';
 import { PaymentModal, ReceiptModal } from '../components/Billing';
-import { money, orderTotals, uid, ACTIVE_STATUSES } from '../utils/helpers';
+import { money, orderTotals, uid, flyTo, ACTIVE_STATUSES } from '../utils/helpers';
+import { isAvailable, suggestions } from '../utils/loyalty';
+
+const POPULAR = '__popular';
 
 export default function POS() {
   const { state, dispatch, update, notify, cur } = useStore();
@@ -52,12 +55,25 @@ export default function POS() {
     [state.orders, orderId],
   );
 
-  const filtered = state.menu.filter(
-    (m) => (cat === 'All' || m.category === cat) && m.name.toLowerCase().includes(q.toLowerCase()),
+  // Best sellers (by quantity sold) for the "Popular" chip
+  const popular = useMemo(() => {
+    const sold = {};
+    state.orders.filter((o) => o.status === 'paid').forEach((o) => o.items.forEach((i) => { sold[i.menuId] = (sold[i.menuId] || 0) + i.qty; }));
+    return state.menu.filter((m) => sold[m.id]).sort((a, b) => sold[b.id] - sold[a.id]).slice(0, 8);
+  }, [state.orders, state.menu]);
+
+  const filtered = (cat === POPULAR ? popular : state.menu).filter(
+    (m) => (cat === 'All' || cat === POPULAR || m.category === cat) && m.name.toLowerCase().includes(q.toLowerCase()),
   );
 
-  const addItem = (m) => {
-    if (!m.available) return;
+  const avail = (m) => isAvailable(m, state.inventory);
+  const recs = useMemo(() => suggestions(items.map((i) => i.menuId), state, 3), [items, state]);
+
+  const addItem = (m, e) => {
+    if (!avail(m)) return notify(`${m.name} is sold out`, 'danger');
+    const fab = document.querySelector('.cart-fab');
+    const target = fab?.getClientRects().length ? fab : document.querySelector('.pos-cart .cart-head');
+    flyTo(e?.currentTarget, target, '+1');
     setBump((b) => b + 1);
     setItems((prev) => {
       const ex = prev.find((i) => i.menuId === m.id);
@@ -118,17 +134,19 @@ export default function POS() {
           <SearchInput icon={Search} inputRef={searchRef} placeholder="Search items…  (press /)" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <div className="chips">
-          {['All', ...state.categories].map((c) => (
-            <button key={c} className={`chip ${cat === c ? 'active' : ''}`} onClick={() => setCat(c)}>{c}</button>
+          {['All', ...(popular.length ? [POPULAR] : []), ...state.categories].map((c) => (
+            <button key={c} className={`chip ${cat === c ? 'active' : ''}`} onClick={() => setCat(c)}>
+              {c === POPULAR ? <span className="flex-c"><Flame size={14} /> Popular</span> : c}
+            </button>
           ))}
         </div>
         <div className="item-grid stagger" key={cat}>
           {filtered.map((m) => (
-            <button key={m.id} className={`item-card ${!m.available ? 'disabled' : ''} ${qtyOf(m.id) ? 'in-cart' : ''}`} onClick={() => addItem(m)}>
+            <button key={m.id} className={`item-card ${!avail(m) ? 'disabled' : ''} ${qtyOf(m.id) ? 'in-cart' : ''}`} onClick={(e) => addItem(m, e)}>
               {qtyOf(m.id) > 0 && <span key={qtyOf(m.id)} className="item-qty pop">{qtyOf(m.id)}</span>}
-              <div className="item-top"><VegDot veg={m.veg} /><span className="item-cat">{m.category}</span></div>
+              <div className="item-top"><VegDot veg={m.veg} /><span className="item-cat">{m.category}</span>{cat === POPULAR && <span className="item-rank">#{popular.indexOf(m) + 1}</span>}</div>
               <div className="item-name">{m.name}</div>
-              <div className="item-price">{m.available ? money(m.price, cur) : 'Out of stock'}</div>
+              <div className="item-price">{avail(m) ? money(m.price, cur) : 'Sold out'}</div>
             </button>
           ))}
           {!filtered.length && <Empty icon={SearchX} text="No items found" />}
@@ -178,6 +196,18 @@ export default function POS() {
               </div>
             </div>
           ))}
+          {recs.length > 0 && (
+            <div className="upsell slide-in">
+              <div className="upsell-head"><Sparkles size={14} /> Suggest to the customer</div>
+              <div className="upsell-list">
+                {recs.map((m) => (
+                  <button key={m.id} className="upsell-chip" onClick={(e) => addItem(m, e)}>
+                    <Plus size={13} /> {m.name} <span>{money(m.price, cur)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="cart-foot">

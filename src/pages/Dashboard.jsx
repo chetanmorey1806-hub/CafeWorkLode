@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 import {
   IndianRupee, Flame, Armchair, Wallet, Plus, ChefHat, ClipboardList, UtensilsCrossed, BarChart3,
-  Trophy, Coffee, PackageCheck, AlertTriangle, ArrowRight, Receipt,
+  Trophy, Coffee, PackageCheck, AlertTriangle, ArrowRight, Receipt, Target, Banknote, Smartphone, CreditCard,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { StatCard, StatusBadge, PageHead, Empty } from '../components/UI';
+import { StatCard, StatusBadge, PageHead, Empty, CountUp } from '../components/UI';
 import { money, orderTotals, inRange, ACTIVE_STATUSES, fmtTime, dateStr, greeting } from '../utils/helpers';
 
 const QUICK = [
@@ -46,6 +46,17 @@ export default function Dashboard() {
   const top = Object.entries(itemMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const topMax = top[0]?.[1] || 1;
 
+  const target = Number(state.settings.dailyTarget) || 0;
+  const pct = target ? Math.min(100, (revenue / target) * 100) : 0;
+  const R = 54;
+  const C = 2 * Math.PI * R;
+
+  const split = ['cash', 'upi', 'card'].map((k) => {
+    const list = paidToday.filter((o) => o.paymentMethod === k);
+    return { k, count: list.length, total: list.reduce((s, o) => s + orderTotals(o).total, 0) };
+  });
+  const SPLIT_META = { cash: ['Cash', Banknote, 'green'], upi: ['UPI', Smartphone, 'purple'], card: ['Card', CreditCard, 'blue'] };
+
   return (
     <div>
       <PageHead title={`${greeting()}!`} subtitle={`Here's what's happening at ${state.settings.cafeName} today`}>
@@ -69,6 +80,50 @@ export default function Dashboard() {
       </div>
 
       <div className="grid-dash stagger">
+        <div className="card target-card">
+          <div className="card-head">
+            <h3 className="flex-c"><Target size={16} className="text-ok" /> Today's Target</h3>
+            <Link to="/settings" className="link">Edit <ArrowRight size={14} /></Link>
+          </div>
+          {target ? (
+            <div className="target-body">
+              <div className={`ring-wrap ${pct >= 100 ? 'hit' : ''}`}>
+                <svg viewBox="0 0 128 128" className="ring">
+                  <circle className="ring-bg" cx="64" cy="64" r={R} />
+                  <circle className="ring-fg" cx="64" cy="64" r={R} strokeDasharray={C} style={{ '--off': C - (pct / 100) * C, '--full': C }} />
+                </svg>
+                <div className="ring-label"><b><CountUp value={pct} />%</b><span>achieved</span></div>
+              </div>
+              <div className="target-info">
+                <div><span className="muted small">Sales</span><b>{money(revenue, cur)}</b></div>
+                <div><span className="muted small">Target</span><b>{money(target, cur)}</b></div>
+                <div>
+                  <span className="muted small">{pct >= 100 ? 'Status' : 'Remaining'}</span>
+                  <b className={pct >= 100 ? 'text-ok' : ''}>{pct >= 100 ? 'Target hit!' : money(target - revenue, cur)}</b>
+                </div>
+              </div>
+            </div>
+          ) : <Empty icon={Target} text="Set a daily sales target in Settings" />}
+        </div>
+
+        <div className="card">
+          <div className="card-head"><h3>Payments Today</h3><span className="muted small">{paidToday.length} bills</span></div>
+          <ul className="split-list">
+            {split.map(({ k, count, total }, i) => {
+              const [label, Icon, tone] = SPLIT_META[k];
+              return (
+                <li key={k}>
+                  <span className={`split-icon tone-${tone}`}><Icon size={17} /></span>
+                  <div className="grow">
+                    <div className="flex-between"><span>{label} <span className="muted small">· {count}</span></span><b>{money(total, cur)}</b></div>
+                    <div className="mini-track"><div className={`mini-fill fill-${tone}`} style={{ width: `${revenue ? (total / revenue) * 100 : 0}%`, animationDelay: `${i * 120}ms` }} /></div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
         <div className="card">
           <div className="card-head">
             <h3>Sales — Last 7 days</h3>

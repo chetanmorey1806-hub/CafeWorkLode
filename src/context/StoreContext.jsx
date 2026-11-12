@@ -1,23 +1,22 @@
-import { createContext, useContext, useEffect, useReducer, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useReducer, useState, useCallback, useRef } from 'react';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { seedData } from './seed';
-import { uid, orderTotals } from '../utils/helpers';
+import { reducer, migrate } from './reducer';
+import { uid } from '../utils/helpers';
 
 const KEY = 'cafe-software-v1';
 const THEME_KEY = 'cafe-theme';
+const PIN_KEY = 'cafe-server-pin';
 const StoreContext = createContext(null);
+
+const hadLocalData = (() => { try { return !!localStorage.getItem(KEY); } catch { return false; } })();
 
 const load = () => {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const data = { ...seedData(), ...JSON.parse(raw) };
-      data.settings = { ...seedData().settings, ...data.settings };
-      if (data.settings.cafeName === 'Brew & Bite Cafe') data.settings.cafeName = 'Soffity Cafe';
-      return data;
-    }
+    if (raw) return migrate(JSON.parse(raw));
   } catch { /* ignore */ }
-  return seedData();
+  return migrate(seedData());
 };
 
 const loadTheme = () => {
@@ -28,58 +27,33 @@ const loadTheme = () => {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 };
 
-function reducer(state, action) {
-  switch (action.type) {
-    case 'ADD':
-      return { ...state, [action.col]: [...state[action.col], { id: uid(), ...action.item }] };
-    case 'UPDATE':
-      return {
-        ...state,
-        [action.col]: state[action.col].map((x) => (x.id === action.id ? { ...x, ...action.patch } : x)),
-      };
-    case 'DELETE':
-      return { ...state, [action.col]: state[action.col].filter((x) => x.id !== action.id) };
-    case 'SET':
-      return { ...state, [action.key]: action.value };
-    case 'CREATE_ORDER': {
-      const order = { id: uid(), ...action.order, no: state.nextOrderNo, createdAt: new Date().toISOString() };
-      return { ...state, orders: [...state.orders, order], nextOrderNo: state.nextOrderNo + 1 };
-    }
-    case 'PAY_ORDER': {
-      const order = state.orders.find((o) => o.id === action.id);
-      if (!order) return state;
-      const paid = { ...order, ...action.patch, status: 'paid', paidAt: new Date().toISOString() };
-      const { total } = orderTotals(paid);
-      const customers = paid.customerId
-        ? state.customers.map((c) =>
-            c.id === paid.customerId
-              ? { ...c, visits: c.visits + 1, totalSpent: c.totalSpent + total, points: c.points + Math.floor(total / 100) }
-              : c,
-          )
-        : state.customers;
-      return { ...state, customers, orders: state.orders.map((o) => (o.id === action.id ? paid : o)) };
-    }
-    case 'RESET':
-      return seedData();
-    case 'CLEAR_ALL':
-      return { ...state, orders: [], expenses: [], customers: [], nextOrderNo: 1001 };
-    case 'IMPORT':
-      return { ...seedData(), ...action.data };
-    default:
-      return state;
-  }
-}
+/** Give new records their id up-front so the server and every device agree on it. */
+const withIds = (a) => {
+  if (a.type === 'ADD' && !a.item.id) return { ...a, item: { ...a.item, id: uid() } };
+  if (a.type === 'CREATE_ORDER' && !a.order.id) return { ...a, order: { ...a.order, id: uid() } };
+  if ((a.type === 'WALLET_TOPUP' || a.type === 'SELL_PASS') && !a.id) return { ...a, id: uid() };
+  return a;
+};
 
 const TOAST_ICON = { ok: CheckCircle2, danger: AlertCircle, info: Info };
 
 export function StoreProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, undefined, load);
+  const [state, localDispatch] = useReducer(reducer, undefined, load);
   const [toasts, setToasts] = useState([]);
   const [theme, setTheme] = useState(loadTheme);
   const [locked, setLocked] = useState(() => !!load().settings.lockEnabled);
+  // 'connecting' | 'online' | 'offline' | 'auth'
+  const [conn, setConn] = useState('connecting');
+
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const wsRef = useRef(null);
+  const pending = useRef([]); // actions sent but not yet confirmed by the server
+  const seq = useRef(0);
+  const pinRef = useRef(null);
 
   useEffect(() => {
-    localStorage.setItem(KEY, JSON.stringify(state));
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage full */ }
   }, [state]);
 
   useEffect(() => {
@@ -87,10 +61,98 @@ export function StoreProvider({ children }) {
     try { localStorage.setItem(THEME_KEY, theme); } catch { /* ignore */ }
   }, [theme]);
 
+  /* ---------------- live sync with the server ---------------- */
+  const connect = useCallback(() => {
+    if (wsRef.current && wsRef.current.readyState <= 1) return;
+    const pin = pinRef.current ?? (localStorage.getItem(PIN_KEY) || stateRef.current.settings.pin || '');
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    let ws;
+    try {
+      ws = new WebSocket(`${proto}://${location.host}/ws?role=staff&pin=${encodeURIComponent(pin)}`);
+    } catch {
+      setConn('offline');
+      return;
+    }
+    wsRef.current = ws;
+    let opened = false;
+
+    ws.onopen = () => { opened = true; };
+    ws.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === 'auth-failed') {
+        ws.authFailed = true;
+        setConn('auth');
+        return;
+      }
+      if (msg.type === 'hello') {
+        try { localStorage.setItem(PIN_KEY, pin); } catch { /* ignore */ }
+        everOnline.current = true;
+        setConn('online');
+        // First device to connect to a brand-new server uploads its existing local data.
+        if (msg.fresh && hadLocalData) {
+          ws.send(JSON.stringify({ type: 'import', state: stateRef.current }));
+          return;
+        }
+        // re-send anything that was done while offline / not yet confirmed
+        const unsent = pending.current;
+        pending.current = [];
+        localDispatch({ type: 'REPLACE', state: migrate(msg.state) });
+        unsent.forEach((p) => send(p.action));
+        return;
+      }
+      if (msg.type === 'state') {
+        pending.current = pending.current.filter((p) => p.seq > (msg.ack || 0));
+        // rebase: server state + my actions that the server hasn't confirmed yet
+        const next = pending.current.reduce((s, p) => reducer(s, p.action), msg.state);
+        localDispatch({ type: 'REPLACE', state: next });
+      }
+    };
+    ws.onclose = () => {
+      wsRef.current = null;
+      if (ws.authFailed) return; // wait for the user to enter the PIN
+      setConn(opened ? 'connecting' : 'offline');
+      setTimeout(connect, opened ? 1500 : 8000);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const everOnline = useRef(false);
+  const send = (action) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== 1) {
+      // server temporarily unreachable: queue it, re-sent on reconnect (see 'hello')
+      if (everOnline.current) pending.current.push({ seq: Infinity, action });
+      return false;
+    }
+    seq.current += 1;
+    pending.current.push({ seq: seq.current, action });
+    ws.send(JSON.stringify({ type: 'action', seq: seq.current, action }));
+    return true;
+  };
+
+  useEffect(() => {
+    connect();
+    return () => { const ws = wsRef.current; wsRef.current = null; if (ws) { ws.onclose = null; ws.close(); } };
+  }, [connect]);
+
+  const dispatch = useCallback((action) => {
+    const a = withIds(action);
+    localDispatch(a); // instant UI
+    send(a); // no-op when offline: data still saved locally
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const retryWithPin = (pin) => {
+    pinRef.current = pin;
+    setConn('connecting');
+    connect();
+  };
+
   const notify = useCallback((msg, kind = 'ok') => {
     const id = uid();
     setToasts((t) => [...t.slice(-2), { id, msg, kind }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800);
+    setTimeout(() => setToasts((t) => t.map((x) => (x.id === id ? { ...x, leaving: true } : x))), 2800);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3150);
   }, []);
 
   const api = {
@@ -98,6 +160,8 @@ export function StoreProvider({ children }) {
     dispatch,
     notify,
     theme,
+    conn,
+    retryWithPin,
     toggleTheme: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')),
     locked,
     setLocked,
@@ -115,9 +179,10 @@ export function StoreProvider({ children }) {
         {toasts.map((t) => {
           const Icon = TOAST_ICON[t.kind] || Info;
           return (
-            <div key={t.id} className={`toast toast-${t.kind}`}>
+            <div key={t.id} className={`toast toast-${t.kind} ${t.leaving ? 'leaving' : ''}`}>
               <Icon size={18} />
               <span>{t.msg}</span>
+              <span className="toast-bar" />
             </div>
           );
         })}

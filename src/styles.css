@@ -835,3 +835,218 @@ input[type='checkbox'] { width: auto; accent-color: var(--brand); }
 @media (prefers-reduced-motion: reduce) {
   .splash *, .splash { animation-duration: .01s !important; animation-delay: 0s !important; }
 }
+
+/* =========================================================
+   New features & animations
+   ========================================================= */
+.text-danger { color: var(--danger) !important; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+/* Ripple */
+.btn, .chip, .item-card, .seg-btn, .quick-btn, .pin-pad button { position: relative; }
+.ripple-wrap { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.ripple {
+  position: absolute; border-radius: 50%; background: currentColor; opacity: .18; transform: scale(0);
+  animation: rippleOut .6s ease-out forwards;
+}
+@keyframes rippleOut { to { transform: scale(1); opacity: 0; } }
+
+/* Toast exit + progress */
+.toast { position: relative; overflow: hidden; }
+.toast.leaving { animation: toastOut .35s var(--ease) forwards; }
+.toast-bar {
+  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: currentColor; opacity: .25;
+  transform-origin: left; animation: toastBar 2.8s linear forwards;
+}
+.toast-ok .toast-bar { background: var(--ok); opacity: .5; }
+.toast-danger .toast-bar { background: var(--danger); opacity: .5; }
+.toast-info .toast-bar { background: var(--info); opacity: .5; }
+@keyframes toastOut { to { opacity: 0; transform: translateX(60px) scale(.9); } }
+@keyframes toastBar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* Confetti & fly-to-cart */
+.confetti-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 400; }
+.fly-dot {
+  position: fixed; z-index: 350; width: 32px; height: 32px; border-radius: 50%; pointer-events: none;
+  display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--brand-2), var(--brand)); box-shadow: 0 6px 18px rgba(122, 82, 54, .45);
+}
+
+/* POS popular rank */
+.item-rank { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--warn); background: var(--warn-l); padding: 1px 7px; border-radius: 8px; }
+
+/* Payment modal */
+.quick-cash { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.quick-cash .chip { padding: 6px 14px; font-size: 13px; }
+.redeem {
+  display: flex; align-items: center; gap: 12px; padding: 11px 13px; margin-bottom: 14px; border-radius: 14px; cursor: pointer;
+  background: var(--purple-l); border: 1px solid color-mix(in srgb, var(--purple) 25%, transparent);
+}
+.redeem-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--card); color: var(--purple); animation: floaty 3s ease-in-out infinite; }
+.new-cust { margin-bottom: 14px; }
+.new-cust .row-input input { min-width: 0; }
+
+.pay-success { text-align: center; padding: 6px 0 4px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.check-anim { width: 96px; height: 96px; margin-bottom: 4px; }
+.check-anim circle {
+  fill: var(--ok-l); stroke: var(--ok); stroke-width: 2.5; stroke-dasharray: 151; stroke-dashoffset: 151;
+  animation: drawStroke .6s var(--ease) forwards, checkPop .45s .55s var(--ease); transform-origin: center;
+}
+.check-anim path {
+  fill: none; stroke: var(--ok); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 40; stroke-dashoffset: 40; animation: drawStroke .4s .5s var(--ease) forwards;
+}
+.ps-amount { font-family: 'Poppins', sans-serif; font-size: 30px; font-weight: 700; color: var(--ok); animation: popIn .4s .5s var(--ease) both; }
+.ps-chip { background: var(--card-2); border: 1px solid var(--border); padding: 6px 12px; border-radius: 10px; font-size: 13.5px; animation: fadeUp .4s .7s var(--ease) both; }
+.ps-points { display: inline-flex; align-items: center; gap: 6px; color: var(--purple); background: var(--purple-l); border-color: transparent; }
+.ps-timer { width: 100%; height: 3px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: 10px; }
+.ps-timer div { height: 100%; background: var(--ok); transform-origin: left; animation: toastBar 2.2s linear forwards; }
+@keyframes drawStroke { to { stroke-dashoffset: 0; } }
+@keyframes checkPop { 50% { transform: scale(1.1); } }
+
+/* Kitchen item tick-off */
+.kot-item { display: flex; align-items: flex-start; gap: 8px; }
+.kot-check { width: 100%; background: none; border: none; padding: 2px 0; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+.kc-box {
+  flex: none; width: 20px; height: 20px; margin-top: 1px; border-radius: 6px; border: 2px solid var(--border);
+  display: grid; place-items: center; color: #fff; transition: background .2s, border-color .2s, transform .2s var(--ease);
+}
+.kot-check:hover .kc-box { border-color: var(--ok); }
+.kot li.done .kc-box { background: var(--ok); border-color: var(--ok); animation: pop .35s var(--ease); }
+.kc-text { position: relative; transition: color .25s, opacity .25s; }
+.kc-text::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 52%; height: 2px; background: currentColor;
+  transform: scaleX(0); transform-origin: left; transition: transform .3s var(--ease);
+}
+.kot li.done .kc-text { opacity: .5; }
+.kot li.done .kc-text::after { transform: scaleX(1); }
+.kot-count { margin: -6px 0 10px; animation: fadeIn .3s; }
+
+/* Dashboard: target ring */
+.target-body { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.ring-wrap { position: relative; width: 140px; height: 140px; flex: none; }
+.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 12; }
+.ring-bg { stroke: var(--bg-2); }
+.ring-fg {
+  stroke: var(--ok); stroke-linecap: round; stroke-dashoffset: var(--off);
+  animation: ringFill 1.2s var(--ease) both; transition: stroke-dashoffset .8s var(--ease);
+}
+.ring-wrap.hit .ring-fg { stroke: var(--brand-2); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--brand-2) 60%, transparent)); }
+.ring-wrap.hit { animation: floaty 3s ease-in-out infinite; }
+.ring-label { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.ring-label b { font-family: 'Poppins', sans-serif; font-size: 26px; line-height: 1.1; }
+.ring-label span { font-size: 12px; color: var(--muted); }
+.target-info { display: grid; gap: 10px; flex: 1; min-width: 150px; }
+.target-info > div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px dashed var(--border); padding-bottom: 8px; }
+.target-info > div:last-child { border-bottom: none; }
+@keyframes ringFill { from { stroke-dashoffset: var(--full); } }
+
+/* Dashboard: payment split */
+.split-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.split-list li { display: flex; align-items: center; gap: 12px; }
+.split-list .mini-track { margin-top: 6px; }
+.split-icon { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; flex: none; transition: transform .25s var(--ease); }
+.split-list li:hover .split-icon { transform: rotate(-8deg) scale(1.08); }
+.split-icon.tone-green { background: var(--ok-l); color: var(--ok); }
+.split-icon.tone-purple { background: var(--purple-l); color: var(--purple); }
+.split-icon.tone-blue { background: var(--info-l); color: var(--info); }
+.mini-fill.fill-green { background: linear-gradient(90deg, #6fd6a0, var(--ok)); }
+.mini-fill.fill-purple { background: linear-gradient(90deg, #c4a6f2, var(--purple)); }
+.mini-fill.fill-blue { background: linear-gradient(90deg, #8fbcf5, var(--info)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-fg { animation: none; }
+  .ring-wrap.hit, .redeem-icon { animation: none; }
+}
+
+/* =========================================================
+   QR ordering, live sync, loyalty & split billing
+   ========================================================= */
+.mt-lg { margin-top: 18px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+code { font-family: ui-monospace, monospace; font-size: .92em; background: var(--bg-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; }
+.flex-row-between { flex-direction: row !important; align-items: center; justify-content: space-between; margin-top: 4px; }
+
+/* connection pill */
+.conn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid var(--border); background: var(--card); color: var(--muted); cursor: default; }
+.conn-online { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); background: var(--ok-l); }
+.conn-online svg { animation: blink 2.4s ease-in-out infinite; }
+.conn-connecting { color: var(--warn); }
+.conn-auth { color: var(--danger); border-color: var(--danger); cursor: pointer; animation: glowPulse 2s infinite; }
+.server-status { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--card-2); }
+.server-status.conn-online { background: var(--ok-l); color: var(--ok); }
+.server-status.conn-online .small { color: var(--text-2); }
+.server-status.conn-offline, .server-status.conn-auth, .server-status.conn-connecting { background: var(--warn-l); color: var(--warn); }
+.server-status .small { color: var(--text-2); margin-top: 2px; }
+
+/* QR codes */
+.qr-warn, .qr-note { display: flex; gap: 10px; align-items: flex-start; padding: 11px 13px; border-radius: 12px; background: var(--warn-l); color: var(--text); margin-bottom: 14px; font-size: 13px; }
+.qr-warn svg, .qr-note svg { color: var(--warn); flex: none; margin-top: 1px; }
+.qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 12px; }
+.qr-card { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px; border-radius: 14px; border: 1px solid var(--border); background: #fff; color: #2a1a10; }
+.qr-card img, .qr-ph { width: 100%; aspect-ratio: 1; border-radius: 8px; }
+.qr-ph { background: linear-gradient(90deg, #eee, #f8f8f8, #eee); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.qr-table { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 16px; }
+
+/* loyalty perks in billing */
+.perks { display: grid; gap: 8px; margin-bottom: 12px; }
+.perk-gold .redeem-icon { background: linear-gradient(135deg, #ffd66b, #f0a92e); color: #6b4300; }
+.perk-brown .redeem-icon { background: var(--brand-l); color: var(--brand); }
+.perk-blue .redeem-icon { background: var(--info-l); color: var(--info); }
+.perk-purple .redeem-icon { background: var(--purple-l); color: var(--purple); }
+
+/* split bill */
+.split-box { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: var(--card-2); display: grid; gap: 8px; }
+.split-head { display: flex; align-items: center; gap: 10px; justify-content: space-between; font-weight: 600; }
+.split-row { display: grid; grid-template-columns: 28px 1fr 1fr; gap: 8px; align-items: center; animation: slideIn .25s var(--ease) both; }
+.split-n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-l); color: var(--brand); font-weight: 700; font-size: 12px; }
+.split-sum { font-weight: 700; text-align: right; font-size: 13px; }
+
+/* tiers & stamps */
+.badge.tier { color: #3b2a00; }
+.tier-silver { background: linear-gradient(135deg, #eef1f5, #c3cad4); color: #3d4450 !important; }
+.tier-gold { background: linear-gradient(135deg, #ffe08a, #f0a92e); }
+.tier-platinum { background: linear-gradient(135deg, #e9e4ff, #a89be0); color: #2e2160 !important; }
+.stamps { display: inline-flex; align-items: center; gap: 3px; }
+.stamps > span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; border: 1.5px dashed var(--border); color: transparent; }
+.stamps > span.on { background: var(--brand); border: none; color: #fff; animation: popIn .3s var(--ease) both; }
+.stamp-free { margin-left: 4px; font-size: 10px; background: var(--ok); color: #fff; padding: 2px 6px; border-radius: 8px; animation: blink 1.4s infinite; }
+.plan-list { display: grid; gap: 8px; }
+.plan { display: flex; align-items: center; gap: 12px; padding: 13px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--card); text-align: left; color: var(--text); }
+.plan.on { border-color: var(--brand); background: var(--brand-l); }
+.plan svg { color: var(--brand); }
+.plan-price { font-size: 17px; color: var(--brand); }
+.cust-summary { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.cust-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.cust-grid > div { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 12px; background: var(--card-2); border: 1px solid var(--border); }
+h4 { margin: 0 0 6px; font-size: 14px; }
+.tier-edit { display: grid; gap: 6px; margin-bottom: 8px; }
+.tier-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr 36px; gap: 6px; align-items: center; }
+.plan-edit { border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 8px; display: grid; gap: 8px; background: var(--card-2); }
+.plan-edit .field { margin: 0; }
+
+/* menu: recipe & pairing editors */
+.recipe-row { margin-bottom: 6px; align-items: center; }
+.recipe-row input { max-width: 110px; }
+.recipe-unit { font-size: 12px; color: var(--muted); min-width: 28px; }
+.pair-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pair-chips .chip { padding: 5px 12px; font-size: 12.5px; }
+
+/* POS upsell */
+.upsell { margin-top: 10px; padding: 10px; border-radius: 12px; background: linear-gradient(135deg, var(--warn-l), var(--brand-l)); border: 1px dashed color-mix(in srgb, var(--warn) 45%, transparent); }
+.upsell-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--warn); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
+.upsell-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.upsell-chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); font-weight: 600; font-size: 12.5px; transition: transform .15s, border-color .15s; }
+.upsell-chip:hover { border-color: var(--brand); transform: translateY(-1px); }
+.upsell-chip span { color: var(--brand); }
+
+/* KDS: items added in a later round from the table */
+.kot li.kot-new { background: color-mix(in srgb, var(--warn) 14%, transparent); border-radius: 8px; padding-left: 6px; }
+
+@media (max-width: 640px) {
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+  .conn span { display: none; }
+  .tier-row { grid-template-columns: 1fr 1fr 1fr 36px; }
+}

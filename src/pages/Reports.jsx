@@ -1,4 +1,4 @@
-import { BadgePercent, Banknote, BarChart3, CreditCard, Download, IndianRupee, Landmark, Receipt, Smartphone, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { BadgePercent, Banknote, BarChart3, CreditCard, Download, IndianRupee, Landmark, Receipt, Smartphone, TrendingDown, TrendingUp, Wallet, Ticket, QrCode, PiggyBank } from 'lucide-react';
 import { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { PageHead, StatCard, Empty } from '../components/UI';
@@ -11,7 +11,12 @@ export default function Reports() {
   const paid = state.orders.filter((o) => o.status === 'paid' && o.paidAt && inRange(o.paidAt, range));
   const cancelled = state.orders.filter((o) => o.status === 'cancelled' && inRange(o.createdAt, range)).length;
   const totals = paid.map((o) => ({ o, ...orderTotals(o) }));
-  const revenue = totals.reduce((s, t) => s + t.total, 0);
+  const ledger = (state.ledger || []).filter((l) => inRange(l.date, range));
+  const passSales = ledger.filter((l) => l.type === 'pass').reduce((s, l) => s + l.amount, 0);
+  const topups = ledger.filter((l) => l.type === 'wallet').reduce((s, l) => s + l.amount, 0);
+  const qrShare = paid.length ? Math.round((paid.filter((o) => o.source === 'qr').length / paid.length) * 100) : 0;
+  // subscription passes are income; wallet top-ups are prepaid (counted when spent on a bill)
+  const revenue = totals.reduce((s, t) => s + t.total, 0) + passSales;
   const tax = totals.reduce((s, t) => s + t.tax, 0);
   const discount = totals.reduce((s, t) => s + t.discount, 0);
   const expenses = state.expenses.filter((e) => inRange(e.date + 'T12:00:00', range)).reduce((s, e) => s + Number(e.amount), 0);
@@ -23,7 +28,15 @@ export default function Reports() {
     totals.forEach((t) => { const k = fn(t.o); m[k] = (m[k] || 0) + t.total; });
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
   };
-  const byPayment = group((o) => (o.paymentMethod || 'other').toUpperCase());
+  // split bills count each part under its own method
+  const byPayment = (() => {
+    const m = {};
+    totals.forEach(({ o, total }) => {
+      const parts = o.payments?.length ? o.payments : [{ method: o.paymentMethod || 'other', amount: total }];
+      parts.forEach((p) => { const k = String(p.method).toUpperCase(); m[k] = (m[k] || 0) + Number(p.amount); });
+    });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  })();
   const byType = group((o) => o.type);
 
   const itemStats = {};
@@ -79,6 +92,9 @@ export default function Reports() {
         <StatCard icon={Receipt} label="Avg Bill" value={avg} format={(v) => money(Math.round(v), cur)} tone="blue" />
         <StatCard icon={Landmark} label="GST Collected" value={tax} format={(v) => money(Math.round(v), cur)} tone="orange" />
         <StatCard icon={BadgePercent} label="Discounts" value={discount} format={(v) => money(Math.round(v), cur)} sub={`${cancelled} cancelled orders`} tone="brown" />
+        <StatCard icon={Ticket} label="Passes sold" value={passSales} format={(v) => money(Math.round(v), cur)} sub="included in revenue" tone="blue" />
+        <StatCard icon={PiggyBank} label="Wallet top-ups" value={topups} format={(v) => money(Math.round(v), cur)} sub="prepaid, counted when spent" tone="green" />
+        <StatCard icon={QrCode} label="QR orders" value={`${qrShare}%`} sub="of bills ordered by scanning" tone="orange" />
       </div>
 
       {!paid.length ? <Empty icon={TrendingDown} text="No sales in this period" /> : (
@@ -97,7 +113,7 @@ export default function Reports() {
           <div className="card">
             <div className="card-head"><h3>Payment & Order Type</h3></div>
             <ul className="simple-list">
-              {byPayment.map(([k, v]) => <li key={k}><span className="grow flex-c"><span className="li-icon">{k === 'CASH' ? <Banknote size={15} /> : k === 'UPI' ? <Smartphone size={15} /> : <CreditCard size={15} />}</span> {k}</span><b>{money(v, cur)}</b></li>)}
+              {byPayment.map(([k, v]) => <li key={k}><span className="grow flex-c"><span className="li-icon">{k === 'CASH' ? <Banknote size={15} /> : k === 'UPI' ? <Smartphone size={15} /> : k === 'WALLET' ? <Wallet size={15} /> : <CreditCard size={15} />}</span> {k}</span><b>{money(v, cur)}</b></li>)}
             </ul>
             <ul className="simple-list mt">
               {byType.map(([k, v]) => <li key={k}><span className="grow text-cap">{k}</span><b>{money(v, cur)}</b></li>)}

@@ -1,4 +1,4 @@
-import { Ban, Bike, ClipboardList, ConciergeBell, Pencil, ReceiptText, Search, ShoppingBag, UtensilsCrossed, Wallet } from 'lucide-react';
+import { Smartphone, Ban, Bike, ClipboardList, ConciergeBell, Pencil, ReceiptText, Search, ShoppingBag, UtensilsCrossed, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
@@ -73,7 +73,7 @@ export default function Orders() {
                   <div>
                     <b>#{o.no}</b>{' '}
                     <span className="muted small flex-c">
-                      {o.type === 'dine-in' ? <><UtensilsCrossed size={13} /> Table {tableName(o.tableId) || ''}</> : o.type === 'takeaway' ? <><ShoppingBag size={13} /> Takeaway</> : <><Bike size={13} /> Delivery</>}
+                      {o.type === 'dine-in' ? <><UtensilsCrossed size={13} /> Table {tableName(o.tableId) || ''}</> : o.type === 'takeaway' ? <><ShoppingBag size={13} /> Takeaway</> : <><Bike size={13} /> Delivery</>}{o.source === 'qr' && <span className="badge badge-purple"><Smartphone size={11} /> QR</span>}{o.paymentIntent === 'upi' && o.status !== 'paid' && <span className="badge badge-info">Wants UPI</span>}{o.paymentMethod === 'split' && <span className="badge badge-warn">Split</span>}
                     </span>
                   </div>
                   <StatusBadge status={o.status} />

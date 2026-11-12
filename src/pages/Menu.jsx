@@ -1,11 +1,12 @@
-import { Pencil, Plus, Search, Tags, Trash2, UtensilsCrossed } from 'lucide-react';
+import { Pencil, Plus, Search, Tags, Trash2, UtensilsCrossed, FlaskConical, Sparkles, X } from 'lucide-react';
 import { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { PageHead, Modal, Field, VegDot, SearchInput } from '../components/UI';
 import DataTable from '../components/DataTable';
 import { money } from '../utils/helpers';
+import { servingsLeft } from '../utils/loyalty';
 
-const blank = { name: '', category: '', price: '', veg: true, available: true };
+const blank = { name: '', category: '', price: '', veg: true, available: true, recipe: [], pairs: [] };
 
 export default function Menu() {
   const { state, add, update, remove, set, notify, cur } = useStore();
@@ -21,7 +22,8 @@ export default function Menu() {
 
   const save = () => {
     if (!edit.name.trim() || !edit.category || !(Number(edit.price) > 0)) return notify('Fill name, category & price', 'danger');
-    const data = { ...edit, name: edit.name.trim(), price: Number(edit.price) };
+    const recipe = (edit.recipe || []).filter((r) => r.inventoryId && Number(r.qty) > 0).map((r) => ({ inventoryId: r.inventoryId, qty: Number(r.qty) }));
+    const data = { ...edit, name: edit.name.trim(), price: Number(edit.price), recipe, pairs: edit.pairs || [] };
     edit.id ? update('menu', edit.id, data) : add('menu', data);
     notify('Menu item saved');
     setEdit(null);
@@ -59,6 +61,14 @@ export default function Menu() {
           { key: 'name', label: 'Item', render: (m) => <span className="flex-c"><VegDot veg={m.veg} /> <b>{m.name}</b></span> },
           { key: 'category', label: 'Category' },
           { key: 'price', label: 'Price', render: (m) => money(m.price, cur) },
+          {
+            key: 'stock', label: 'Stock',
+            render: (m) => {
+              const n = servingsLeft(m, state.inventory);
+              if (n === Infinity) return <span className="muted small">No recipe</span>;
+              return <span className={`badge ${n < 1 ? 'badge-danger' : n < 10 ? 'badge-warn' : 'badge-ok'}`}>{n < 1 ? 'Sold out' : `${n} servings`}</span>;
+            },
+          },
           {
             key: 'available', label: 'Available',
             render: (m) => (
@@ -105,6 +115,38 @@ export default function Menu() {
                 <option value="n">No (out of stock)</option>
               </select>
             </Field>
+          </div>
+
+          <div className="field"><span className="flex-c"><FlaskConical size={14} /> Recipe — stock used per serving</span></div>
+          <p className="muted small" style={{ marginTop: -6 }}>Stock is deducted automatically when a bill is paid. The item shows as sold out when stock runs short.</p>
+          {(edit.recipe || []).map((r, k) => {
+            const inv = state.inventory.find((i) => i.id === r.inventoryId);
+            return (
+              <div className="row-input recipe-row" key={k}>
+                <select value={r.inventoryId} onChange={(e) => setEdit({ ...edit, recipe: edit.recipe.map((x, j) => (j === k ? { ...x, inventoryId: e.target.value } : x)) })}>
+                  {state.inventory.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                </select>
+                <input type="number" step="any" min="0" value={r.qty} onChange={(e) => setEdit({ ...edit, recipe: edit.recipe.map((x, j) => (j === k ? { ...x, qty: e.target.value } : x)) })} />
+                <span className="recipe-unit">{inv?.unit}</span>
+                <button className="btn btn-sm btn-danger-ghost" onClick={() => setEdit({ ...edit, recipe: edit.recipe.filter((_, j) => j !== k) })}><X size={14} /></button>
+              </div>
+            );
+          })}
+          {state.inventory.length > 0 && (
+            <button className="btn btn-sm" onClick={() => setEdit({ ...edit, recipe: [...(edit.recipe || []), { inventoryId: state.inventory[0].id, qty: '' }] })}><Plus size={13} /> Add ingredient</button>
+          )}
+
+          <div className="field mt"><span className="flex-c"><Sparkles size={14} /> Suggest with this item (smart upselling)</span></div>
+          <div className="pair-chips">
+            {state.menu.filter((m) => m.id !== edit.id).map((m) => {
+              const on = (edit.pairs || []).includes(m.id);
+              return (
+                <button key={m.id} className={`chip ${on ? 'active' : ''}`}
+                  onClick={() => setEdit({ ...edit, pairs: on ? edit.pairs.filter((x) => x !== m.id) : [...(edit.pairs || []), m.id] })}>
+                  {m.name}
+                </button>
+              );
+            })}
           </div>
         </Modal>
       )}

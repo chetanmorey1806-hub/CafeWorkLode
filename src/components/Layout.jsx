@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Menu as MenuIcon, Bell, Sun, Moon,
-  Maximize, Minimize, Lock, Search, MoreHorizontal, BellRing, PackageX, X,
+  Maximize, Minimize, Lock, Search, MoreHorizontal, BellRing, PackageX, X, Wifi, WifiOff, KeyRound, Smartphone,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { PrintHost } from './Billing';
@@ -30,7 +30,7 @@ function Clock() {
 }
 
 export default function Layout() {
-  const { state, theme, toggleTheme, locked, setLocked, notify } = useStore();
+  const { state, theme, toggleTheme, locked, setLocked, notify, conn, retryWithPin } = useStore();
   const [open, setOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [palette, setPalette] = useState(false);
@@ -42,7 +42,8 @@ export default function Layout() {
   const kitchen = state.orders.filter((o) => ['pending', 'preparing'].includes(o.status));
   const ready = state.orders.filter((o) => o.status === 'ready');
   const lowStock = state.inventory.filter((i) => i.qty <= i.minQty);
-  const notifCount = ready.length + lowStock.length;
+  const qrPending = state.orders.filter((o) => o.source === 'qr' && o.status === 'pending').length;
+  const notifCount = ready.length + lowStock.length + qrPending;
   const badge = (to) => (to === '/kitchen' ? kitchen.length : to === '/inventory' ? lowStock.length : 0);
   const current = NAV.find((n) => (n.end ? loc.pathname === n.to : loc.pathname.startsWith(n.to)));
 
@@ -58,6 +59,49 @@ export default function Layout() {
     prev.current = { pending: pendingCount, ready: ready.length };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingCount, ready.length]);
+
+  // Desktop notification (if the owner enabled it in Settings)
+  const desktop = (title, body) => {
+    if (!state.settings.desktopAlerts || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    try { new Notification(title, { body, icon: 'logo.svg', tag: title + body }); } catch { /* ignore */ }
+  };
+
+  // New QR orders (or extra rounds added from the table)
+  const seenQr = useRef(null);
+  useEffect(() => {
+    const keys = state.orders.filter((o) => o.source === 'qr' && o.status === 'pending').map((o) => `${o.id}:${o.round || 1}`);
+    if (seenQr.current) {
+      keys.filter((k) => !seenQr.current.has(k)).forEach((k) => {
+        const o = state.orders.find((x) => x.id === k.split(':')[0]);
+        const tname = state.tables.find((t) => t.id === o?.tableId)?.name || '';
+        const msg = `${(o?.round || 1) > 1 ? 'More items' : 'New QR order'} · Table ${tname} · #${o?.no}`;
+        notify(msg, 'info');
+        desktop('New table order', msg);
+      });
+    }
+    seenQr.current = new Set(keys);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.orders]);
+
+  // Auto stock alert when an item drops to / below its minimum level
+  const seenLow = useRef(null);
+  useEffect(() => {
+    const ids = lowStock.map((i) => i.id);
+    if (seenLow.current) {
+      lowStock.filter((i) => !seenLow.current.has(i.id)).forEach((i) => {
+        const msg = `${i.name} is low — ${i.qty} ${i.unit} left (min ${i.minQty})`;
+        notify(msg, 'danger');
+        desktop('Low stock alert', msg);
+      });
+    }
+    seenLow.current = new Set(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lowStock.map((i) => i.id).join()]);
+
+  const askPin = () => {
+    const pin = prompt('Enter the café PIN to connect this device to the server:');
+    if (pin) retryWithPin(pin);
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -148,6 +192,14 @@ export default function Layout() {
             <Search size={15} /><span>Search pages, orders, actions…</span><kbd>Ctrl K</kbd>
           </button>
           <div className="topbar-actions">
+            <button
+              className={`conn conn-${conn}`}
+              onClick={conn === 'auth' ? askPin : undefined}
+              title={{ online: 'Connected to the café server — all devices are in sync', connecting: 'Connecting to the server…', offline: 'Server not running — data is saved on this device only', auth: 'Wrong PIN — click to enter the café PIN' }[conn]}
+            >
+              {conn === 'online' ? <Wifi size={14} /> : conn === 'auth' ? <KeyRound size={14} /> : <WifiOff size={14} />}
+              <span>{{ online: 'Live', connecting: 'Connecting', offline: 'Offline', auth: 'Enter PIN' }[conn]}</span>
+            </button>
             <Clock />
             <button className="icon-btn tb-btn search-mobile" onClick={() => setPalette(true)} title="Search"><Search size={18} /></button>
             <div className="bell-wrap" ref={bellRef}>
@@ -159,6 +211,12 @@ export default function Layout() {
                 <div className="dropdown">
                   <div className="dropdown-head">Notifications</div>
                   {!notifCount && <div className="dropdown-empty">You're all caught up</div>}
+                  {state.orders.filter((o) => o.source === 'qr' && o.status === 'pending').map((o) => (
+                    <button key={'q' + o.id} className="dropdown-item" onClick={() => { setBellOpen(false); nav('/kitchen'); }}>
+                      <span className="di-icon"><Smartphone size={16} /></span>
+                      <span className="grow">QR order #{o.no} · Table {state.tables.find((t) => t.id === o.tableId)?.name}<small>{minutesAgo(o.updatedAt || o.createdAt)} min ago · waiting for kitchen</small></span>
+                    </button>
+                  ))}
                   {ready.map((o) => (
                     <button key={o.id} className="dropdown-item" onClick={() => { setBellOpen(false); nav('/orders'); }}>
                       <span className="di-icon ok"><BellRing size={16} /></span>
