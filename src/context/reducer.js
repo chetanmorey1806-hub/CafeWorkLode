@@ -6,6 +6,8 @@
 import { seedData } from './seed.js';
 import { orderTotals, uid, dateStr } from '../utils/helpers.js';
 import { loyaltyOf, stampQty, consumeStock } from '../utils/loyalty.js';
+import { DEFAULT_MODIFIERS } from '../utils/menuOptions.js';
+import { DEFAULT_OFFERS } from '../utils/offers.js';
 
 /** Fill in fields added in newer versions so old saved data keeps working. */
 export function migrate(data) {
@@ -14,6 +16,8 @@ export function migrate(data) {
   s.settings = { ...seed.settings, ...(data.settings || {}) };
   s.settings.loyalty = { ...seed.settings.loyalty, ...(data.settings?.loyalty || {}) };
   if (s.settings.cafeName === 'Brew & Bite Cafe') s.settings.cafeName = 'Soffity Cafe';
+  s.settings.offers = { ...DEFAULT_OFFERS, ...(data.settings?.offers || {}) };
+  s.modifiers = data.modifiers ?? DEFAULT_MODIFIERS;
   s.ledger = data.ledger || [];
   s.menu = (s.menu || []).map((m) => {
     const sm = seed.menu.find((x) => x.id === m.id && x.name === m.name);
@@ -108,7 +112,7 @@ export function reducer(state, action) {
     case 'REPLACE':
       return action.state;
     case 'RESET':
-      return seedData();
+      return migrate(seedData());
     case 'CLEAR_ALL':
       return { ...state, orders: [], expenses: [], customers: [], ledger: [], nextOrderNo: 1001 };
     case 'IMPORT':

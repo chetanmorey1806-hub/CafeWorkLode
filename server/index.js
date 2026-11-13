@@ -14,13 +14,12 @@ import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { reducer, migrate, SYNC_ACTIONS } from '../src/context/reducer.js';
 import { seedData } from '../src/context/seed.js';
-import { isAvailable, suggestions } from '../src/utils/loyalty.js';
-import { orderTotals, uid, ACTIVE_STATUSES } from '../src/utils/helpers.js';
+import { buildQrOrder, publicOrder as toPublic, publicMenu } from '../src/utils/qrOrder.js';
+import { checkPromo } from '../src/utils/offers.js';
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 4000;
@@ -58,27 +57,8 @@ function save() {
 /* ------------------------------------------------------------------ helpers */
 const tableName = (id) => state.tables.find((t) => t.id === id)?.name;
 
-const publicOrder = (o) => {
-  const t = orderTotals(o);
-  return {
-    id: o.id, no: o.no, status: o.status, table: tableName(o.tableId) || null, createdAt: o.createdAt, paidAt: o.paidAt || null,
-    items: o.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, note: i.note || '', done: !!i.done })),
-    subtotal: t.subtotal, discount: t.discount, tax: t.tax, total: t.total, paymentIntent: o.paymentIntent || null,
-  };
-};
+const publicOrder = (o) => toPublic(state, o);
 
-const publicMenu = () => {
-  const recs = {};
-  state.menu.forEach((m) => { recs[m.id] = suggestions([m.id], state, 3).map((x) => x.id); });
-  const s = state.settings;
-  return {
-    cafe: { name: s.cafeName, address: s.address, phone: s.phone, currency: s.currency, taxPercent: s.taxPercent, upiId: s.upiId, upiName: s.upiName || s.cafeName },
-    categories: state.categories,
-    menu: state.menu.map((m) => ({ id: m.id, name: m.name, category: m.category, price: m.price, veg: m.veg, available: isAvailable(m, state.inventory) })),
-    recommendations: recs,
-    stampEvery: s.loyalty?.stampEvery || 5,
-  };
-};
 
 function lanUrls(port) {
   const out = [];
@@ -119,8 +99,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true, version }));
 app.get('/api/info', (req, res) => res.json({ lanIps: lanUrls(0).map((u) => u.replace(/^http:\/\//, '').replace(/:0$/, '')), port: PORT }));
 
 app.get('/api/public/menu', (req, res) => {
-  const table = state.tables.find((t) => t.id === req.query.table);
-  res.json({ ...publicMenu(), table: table ? { id: table.id, name: table.name } : null });
+  res.json(publicMenu(state, req.query.table));
 });
 
 // simple per-IP rate limit for public order placement
@@ -135,52 +114,28 @@ function limited(ip) {
 
 app.post('/api/public/orders', (req, res) => {
   if (limited(req.ip)) return res.status(429).json({ error: 'Too many orders from this device. Please ask the staff.' });
-  const { tableId, items, customerName = '', phone = '', payment = 'counter' } = req.body || {};
-  const table = state.tables.find((t) => t.id === tableId);
-  if (!table) return res.status(400).json({ error: 'Unknown table. Please scan the QR code again.' });
-  if (!Array.isArray(items) || !items.length || items.length > 30) return res.status(400).json({ error: 'Your cart is empty.' });
-
-  const lines = [];
-  for (const it of items) {
-    const m = state.menu.find((x) => x.id === it.menuId);
-    const qty = Math.floor(Number(it.qty));
-    if (!m || !(qty >= 1 && qty <= 20)) return res.status(400).json({ error: 'Invalid item in cart.' });
-    if (!isAvailable(m, state.inventory)) return res.status(409).json({ error: `Sorry, ${m.name} is sold out.` });
-    // prices always come from the server menu, never from the client
-    lines.push({ menuId: m.id, name: m.name, price: m.price, qty, note: String(it.note || '').slice(0, 100), done: false });
-  }
-  const cleanPhone = /^\d{10}$/.test(String(phone)) ? String(phone) : '';
-  const name = String(customerName).trim().slice(0, 40);
-  const customer = cleanPhone ? state.customers.find((c) => c.phone === cleanPhone) : null;
-  const intent = ['counter', 'upi'].includes(payment) ? payment : 'counter';
-
-  // One running bill per table: add to the table's open order if there is one.
-  const open = state.orders.find((o) => o.tableId === table.id && ACTIVE_STATUSES.includes(o.status));
-  if (open) {
-    const round = (open.round || 1) + 1;
-    apply({
-      type: 'UPDATE', col: 'orders', id: open.id,
-      patch: {
-        items: [...open.items, ...lines.map((l) => ({ ...l, round }))],
-        round, status: 'pending', source: open.source || 'qr', updatedAt: new Date().toISOString(),
-        customerName: open.customerName || name, customerPhone: open.customerPhone || cleanPhone,
-        customerId: open.customerId || customer?.id || null, paymentIntent: intent,
-      },
-    });
-    broadcast();
-    return res.json({ id: open.id, no: open.no, token: open.trackToken || '', appended: true });
-  }
-
-  const order = {
-    id: uid(), type: 'dine-in', tableId: table.id, items: lines, status: 'pending', discount: 0,
-    taxPercent: state.settings.taxPercent, paymentMethod: null, paidAt: null, source: 'qr', round: 1,
-    customerName: customer?.name || name, customerPhone: cleanPhone, customerId: customer?.id || null,
-    paymentIntent: intent, trackToken: crypto.randomBytes(12).toString('hex'),
-  };
-  apply({ type: 'CREATE_ORDER', order });
+  const r = buildQrOrder(state, req.body);
+  if (r.error) return res.status(r.status || 400).json({ error: r.error });
+  apply(r.action);
   broadcast();
-  const created = state.orders.find((o) => o.id === order.id);
-  res.json({ id: created.id, no: created.no, token: created.trackToken });
+  const o = state.orders.find((x) => x.id === r.id);
+  res.json({ id: o.id, no: o.no, token: o.trackToken || r.token, appended: r.appended });
+});
+
+app.post('/api/public/promo', (req, res) => {
+  const r = checkPromo(state.settings, req.body?.code, Number(req.body?.amount) || 0);
+  res.status(r.ok ? 200 : 400).json(r);
+});
+
+// customer asks for the bill from their phone → table turns red on the floor plan
+app.post('/api/public/orders/:id/bill', (req, res) => {
+  const o = state.orders.find((x) => x.id === req.params.id);
+  if (!o || !o.trackToken || o.trackToken !== req.query.token) return res.status(404).json({ error: 'Order not found' });
+  if (!o.billRequested && o.status !== 'paid') {
+    apply({ type: 'UPDATE', col: 'orders', id: o.id, patch: { billRequested: true, billRequestedAt: new Date().toISOString() } });
+    broadcast();
+  }
+  res.json(publicOrder(state.orders.find((x) => x.id === o.id)));
 });
 
 app.get('/api/public/orders/:id', (req, res) => {

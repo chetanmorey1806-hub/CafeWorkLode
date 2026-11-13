@@ -2,12 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Printer, Banknote, Smartphone, CreditCard, Check, ReceiptText, Wallet, UserPlus, X, Star, PartyPopper,
-  Crown, Coffee, Ticket, Users, Plus, Minus, Divide,
+  Crown, Coffee, Ticket, Users, Plus, Minus, Divide, PartyPopper as Party, Tag, Download, MessageCircle, ListChecks,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Modal, Field } from './UI';
 import { money, orderTotals, fmtDateTime, uid, chime, confetti } from '../utils/helpers';
 import { tierFor, loyaltyOf, stampItems, activePass, passUsedToday } from '../utils/loyalty';
+import { happyHourAmount, checkPromo } from '../utils/offers';
+import { modsLabel } from '../utils/menuOptions';
+import { billFromOrder, downloadBillPdf, shareOnWhatsApp } from '../utils/receiptShare';
+import UpiQr from './UpiQr';
+import SplitCalculator from './SplitCalculator';
 
 const METHOD = { cash: ['Cash', Banknote], upi: ['UPI', Smartphone], card: ['Card', CreditCard], wallet: ['Wallet', Wallet] };
 
@@ -17,7 +22,7 @@ export function Receipt({ order }) {
   const s = state.settings;
   const t = orderTotals(order);
   const table = state.tables.find((x) => x.id === order.tableId);
-  const special = (order.pointsUsed || 0) + (order.tierDiscount || 0) + (order.freeItem || 0) + (order.passAmount || 0);
+  const special = (order.pointsUsed || 0) + (order.tierDiscount || 0) + (order.freeItem || 0) + (order.passAmount || 0) + (order.offerHH || 0) + (order.offerPromo || 0);
   const manual = +(t.discount - special).toFixed(2);
   return (
     <div className="receipt">
@@ -36,13 +41,18 @@ export function Receipt({ order }) {
       <div className="r-line" />
       <div className="r-row r-bold"><span>Item</span><span>Qty × Rate = Amt</span></div>
       {order.items.map((i, idx) => (
-        <div className="r-row" key={idx}>
-          <span>{i.name}</span>
-          <span>{i.qty} × {i.price} = {i.qty * i.price}</span>
+        <div key={idx}>
+          <div className="r-row">
+            <span>{i.name}</span>
+            <span>{i.qty} × {i.price} = {i.qty * i.price}</span>
+          </div>
+          {modsLabel(i.mods) && <div className="r-mods">{modsLabel(i.mods)}</div>}
         </div>
       ))}
       <div className="r-line" />
       <div className="r-row"><span>Subtotal</span><span>{money(t.subtotal, cur)}</span></div>
+      {order.offerHH > 0 && <div className="r-row"><span>Happy hours</span><span>-{money(order.offerHH, cur)}</span></div>}
+      {order.offerPromo > 0 && <div className="r-row"><span>Promo {order.promoCode}</span><span>-{money(order.offerPromo, cur)}</span></div>}
       {order.tierDiscount > 0 && <div className="r-row"><span>{order.tierName} member discount</span><span>-{money(order.tierDiscount, cur)}</span></div>}
       {order.freeItem > 0 && <div className="r-row"><span>Free coffee (stamp card)</span><span>-{money(order.freeItem, cur)}</span></div>}
       {order.passAmount > 0 && <div className="r-row"><span>Coffee pass</span><span>-{money(order.passAmount, cur)}</span></div>}
@@ -79,6 +89,13 @@ export function PrintHost() {
 }
 
 export function ReceiptModal({ order, onClose }) {
+  const { state } = useStore();
+  const bill = billFromOrder(order, state);
+  const sendWa = () => {
+    let phone = bill.phone;
+    if (!phone) phone = prompt('Customer WhatsApp number (10 digits) — leave empty to choose a chat:') || '';
+    shareOnWhatsApp(bill, phone);
+  };
   return (
     <Modal
       title={`Bill #${order.no}`}
@@ -87,6 +104,8 @@ export function ReceiptModal({ order, onClose }) {
       footer={
         <>
           <button className="btn" onClick={onClose}>Close</button>
+          <button className="btn" onClick={() => downloadBillPdf(bill)}><Download size={16} /> PDF</button>
+          <button className="btn btn-wa" onClick={sendWa}><MessageCircle size={16} /> WhatsApp</button>
           <button className="btn btn-primary" onClick={() => printReceipt(order)}><Printer size={16} /> Print</button>
         </>
       }
@@ -120,6 +139,10 @@ export function PaymentModal({ order, onClose, onPaid }) {
   const [useStamp, setUseStamp] = useState(false);
   const [usePass, setUsePass] = useState(false);
   const [splitOn, setSplitOn] = useState(false);
+  const [byItem, setByItem] = useState(false);
+  const [useHH, setUseHH] = useState(true);
+  const [promoCode, setPromoCode] = useState(order.promoCode || '');
+  const [promoInput, setPromoInput] = useState('');
   const [parts, setParts] = useState([{ method: 'cash', amount: '' }, { method: 'upi', amount: '' }]);
   const [done, setDone] = useState(null);
   const timer = useRef();
@@ -141,7 +164,11 @@ export function PaymentModal({ order, onClose, onPaid }) {
   const canPass = pass && !passUsedToday(customer) && passCoffees.length > 0;
   const passAmt = usePass && canPass ? Math.min(Math.max(...passCoffees.map((i) => i.price)), pass.maxPrice || Infinity) : 0;
   const manual = Math.min(subtotal, discType === 'pct' ? (subtotal * (Number(discount) || 0)) / 100 : Number(discount) || 0);
-  const before = Math.min(subtotal, tierDisc + freeAmt + passAmt + manual);
+  // offers: happy-hour snapshot from when the order was placed + promo code
+  const hhAmt = useHH ? happyHourAmount(order.happyHour, order.items, state.menu) : 0;
+  const promoRes = promoCode ? checkPromo(state.settings, promoCode, subtotal - hhAmt) : null;
+  const promoAmt = promoRes?.ok ? promoRes.amount : 0;
+  const before = Math.min(subtotal, tierDisc + freeAmt + passAmt + manual + hhAmt + promoAmt);
   const pointsUsed = redeem && customer ? Math.min(customer.points || 0, Math.floor(subtotal - before)) : 0;
   const t = orderTotals({ ...order, discount: before + pointsUsed });
   const change = method === 'cash' && received ? Number(received) - t.total : 0;
@@ -189,6 +216,7 @@ export function PaymentModal({ order, onClose, onPaid }) {
       tierDiscount: tierDisc, tierName: tierDisc ? tier.name : null,
       freeItem: freeAmt, stampsUsed: freeAmt ? L.stampEvery : 0,
       passAmount: passAmt, passUsed: passAmt > 0,
+      offerHH: hhAmt, offerPromo: promoAmt, promoCode: promoAmt ? promoRes.code : '',
       paymentMethod: payments.length > 1 ? 'split' : payments[0].method,
       payments,
       customerId: cid,
@@ -242,6 +270,8 @@ export function PaymentModal({ order, onClose, onPaid }) {
       )}
       <div className="pay-summary">
         <div className="r-row"><span>Items ({order.items.reduce((s, i) => s + i.qty, 0)})</span><span>{money(t.subtotal, cur)}</span></div>
+        {hhAmt > 0 && <div className="r-row text-ok slide-in"><span>{order.happyHour.name} ({order.happyHour.percent}%)</span><span>-{money(hhAmt, cur)}</span></div>}
+        {promoAmt > 0 && <div className="r-row text-ok slide-in"><span>Promo {promoRes.code}</span><span>-{money(promoAmt, cur)}</span></div>}
         {tierDisc > 0 && <div className="r-row text-ok slide-in"><span>{tier.name} member ({tier.discount}%)</span><span>-{money(tierDisc, cur)}</span></div>}
         {freeAmt > 0 && <div className="r-row text-ok slide-in"><span>Free coffee (stamp card)</span><span>-{money(freeAmt, cur)}</span></div>}
         {passAmt > 0 && <div className="r-row text-ok slide-in"><span>{pass.name}</span><span>-{money(passAmt, cur)}</span></div>}
@@ -249,6 +279,27 @@ export function PaymentModal({ order, onClose, onPaid }) {
         {pointsUsed > 0 && <div className="r-row text-ok slide-in"><span>Points redeemed ({pointsUsed})</span><span>-{money(pointsUsed, cur)}</span></div>}
         <div className="r-row"><span>GST {order.taxPercent}%</span><span>{money(t.tax, cur)}</span></div>
         <div className="r-row pay-total"><span>Payable</span><span key={t.total} className="pop">{money(t.total, cur)}</span></div>
+      </div>
+
+      <div className="perks">
+        {order.happyHour && happyHourAmount(order.happyHour, order.items, state.menu) > 0 && (
+          <Perk icon={Party} tone="brown" title={`${order.happyHour.name} · ${order.happyHour.percent}% off`} sub="Ordered during happy hours" checked={useHH} onChange={setUseHH} />
+        )}
+        {promoCode ? (
+          <label className={`redeem perk-purple slide-in ${promoRes?.ok ? '' : 'perk-bad'}`}>
+            <span className="redeem-icon"><Tag size={16} /></span>
+            <span className="grow"><b>Promo {promoCode}</b><div className="muted small">{promoRes?.ok ? `-${money(promoAmt, cur)} · ${promoRes.desc || ''}` : promoRes?.error}</div></span>
+            <button className="btn btn-sm" onClick={(e) => { e.preventDefault(); setPromoCode(''); }}>Remove</button>
+          </label>
+        ) : (
+          <div className="row-input promo-row">
+            <input placeholder="Promo code" value={promoInput} onChange={(e) => setPromoInput(e.target.value.toUpperCase())} />
+            <button className="btn" onClick={() => {
+              const r = checkPromo(state.settings, promoInput, subtotal - hhAmt);
+              if (r.ok) { setPromoCode(r.code); setPromoInput(''); } else notify(r.error, 'danger');
+            }}><Tag size={15} /> Apply</button>
+          </div>
+        )}
       </div>
 
       {newCust ? (
@@ -313,6 +364,12 @@ export function PaymentModal({ order, onClose, onPaid }) {
               return <button key={k} className={`seg-btn ${method === k ? 'active' : ''}`} onClick={() => setMethod(k)}><I size={16} /> {l}</button>;
             })}
           </div>
+          {method === 'upi' && state.settings.upiId && (
+            <div className="slide-in mt">
+              <UpiQr upiId={state.settings.upiId} name={state.settings.upiName || state.settings.cafeName} amount={t.total} note={`Bill ${order.no}`} size={170}
+                caption={<>Customer scans to pay <b>{money(t.total, cur)}</b><br />{state.settings.upiId}</>} />
+            </div>
+          )}
           {method === 'wallet' && (
             <div className={`muted small mt ${walletBal < t.total ? 'text-danger' : ''}`}>Wallet balance: {money(walletBal, cur)}{walletBal >= t.total ? ` → ${money(walletBal - t.total, cur)} after this bill` : ' — not enough, use Split bill'}</div>
           )}
@@ -345,6 +402,13 @@ export function PaymentModal({ order, onClose, onPaid }) {
             </div>
             <button className="chip" onClick={() => splitEqual(parts.length)}>Equal</button>
           </div>
+          <button className={`chip ${byItem ? 'active' : ''}`} onClick={() => setByItem(!byItem)}><ListChecks size={14} /> Split by item</button>
+          {byItem && (
+            <div className="slide-in">
+              <SplitCalculator items={order.items} subtotal={subtotal} total={t.total} cur={cur}
+                onUse={(shares) => { setParts(shares.map((a, k) => ({ method: parts[k]?.method || (k % 2 ? 'upi' : 'cash'), amount: String(a) }))); setByItem(false); }} />
+            </div>
+          )}
           {parts.map((p, k) => (
             <div className="split-row" key={k}>
               <span className="split-n">{k + 1}</span>

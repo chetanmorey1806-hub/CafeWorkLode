@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Menu as MenuIcon, Bell, Sun, Moon,
-  Maximize, Minimize, Lock, Search, MoreHorizontal, BellRing, PackageX, X, Wifi, WifiOff, KeyRound, Smartphone,
+  Maximize, Minimize, Lock, Search, MoreHorizontal, BellRing, PackageX, X, Wifi, WifiOff, KeyRound, Smartphone, HandPlatter, Download,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { PrintHost } from './Billing';
 import CommandPalette from './CommandPalette';
 import LockScreen from './LockScreen';
-import { chime, minutesAgo } from '../utils/helpers';
+import { chime, minutesAgo, ACTIVE_STATUSES } from '../utils/helpers';
 import { NAV } from './nav';
+import { useInstallPrompt } from '../utils/pwa';
 
 
 
@@ -38,12 +39,14 @@ export default function Layout() {
   const loc = useLocation();
   const nav = useNavigate();
   const bellRef = useRef();
+  const { canInstall, install } = useInstallPrompt();
 
   const kitchen = state.orders.filter((o) => ['pending', 'preparing'].includes(o.status));
   const ready = state.orders.filter((o) => o.status === 'ready');
   const lowStock = state.inventory.filter((i) => i.qty <= i.minQty);
   const qrPending = state.orders.filter((o) => o.source === 'qr' && o.status === 'pending').length;
-  const notifCount = ready.length + lowStock.length + qrPending;
+  const billReq = state.orders.filter((o) => o.billRequested && ACTIVE_STATUSES.includes(o.status));
+  const notifCount = ready.length + lowStock.length + qrPending + billReq.length;
   const badge = (to) => (to === '/kitchen' ? kitchen.length : to === '/inventory' ? lowStock.length : 0);
   const current = NAV.find((n) => (n.end ? loc.pathname === n.to : loc.pathname.startsWith(n.to)));
 
@@ -82,6 +85,22 @@ export default function Layout() {
     seenQr.current = new Set(keys);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.orders]);
+
+  // Customer pressed "Request the bill" on their phone
+  const seenBill = useRef(null);
+  useEffect(() => {
+    const ids = billReq.map((o) => o.id);
+    if (seenBill.current) {
+      billReq.filter((o) => !seenBill.current.has(o.id)).forEach((o) => {
+        const msg = `Table ${state.tables.find((t) => t.id === o.tableId)?.name || ''} is asking for the bill · #${o.no}`;
+        if (state.settings.sound !== false) chime();
+        notify(msg, 'info');
+        desktop('Bill requested', msg);
+      });
+    }
+    seenBill.current = new Set(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billReq.map((o) => o.id).join()]);
 
   // Auto stock alert when an item drops to / below its minimum level
   const seenLow = useRef(null);
@@ -200,6 +219,7 @@ export default function Layout() {
               {conn === 'online' ? <Wifi size={14} /> : conn === 'auth' ? <KeyRound size={14} /> : <WifiOff size={14} />}
               <span>{{ online: 'Live', connecting: 'Connecting', offline: 'Offline', auth: 'Enter PIN' }[conn]}</span>
             </button>
+            {canInstall && <button className="btn btn-sm hide-sm" onClick={install} title="Install as an app"><Download size={14} /> Install app</button>}
             <Clock />
             <button className="icon-btn tb-btn search-mobile" onClick={() => setPalette(true)} title="Search"><Search size={18} /></button>
             <div className="bell-wrap" ref={bellRef}>
@@ -211,6 +231,12 @@ export default function Layout() {
                 <div className="dropdown">
                   <div className="dropdown-head">Notifications</div>
                   {!notifCount && <div className="dropdown-empty">You're all caught up</div>}
+                  {billReq.map((o) => (
+                    <button key={'b' + o.id} className="dropdown-item" onClick={() => { setBellOpen(false); nav('/orders'); }}>
+                      <span className="di-icon danger"><HandPlatter size={16} /></span>
+                      <span className="grow">Table {state.tables.find((t) => t.id === o.tableId)?.name} wants the bill<small>#{o.no} · {minutesAgo(o.billRequestedAt)} min ago</small></span>
+                    </button>
+                  ))}
                   {state.orders.filter((o) => o.source === 'qr' && o.status === 'pending').map((o) => (
                     <button key={'q' + o.id} className="dropdown-item" onClick={() => { setBellOpen(false); nav('/kitchen'); }}>
                       <span className="di-icon"><Smartphone size={16} /></span>

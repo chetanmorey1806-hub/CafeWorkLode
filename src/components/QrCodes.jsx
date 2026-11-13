@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { QrCode, Printer, ExternalLink, AlertTriangle, Wifi } from 'lucide-react';
+import { QrCode, Printer, ExternalLink, AlertTriangle, Wifi, Download, ScanLine } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Modal, Field } from './UI';
 
@@ -97,12 +97,16 @@ export default function QrCodesModal({ onClose }) {
         </select>
       </Field>
       <p className="muted small flex-c"><Wifi size={14} /> Phones must be on the same Wi-Fi as this computer, or set a public URL in Settings once the app is hosted online.</p>
+      <p className="muted small flex-c"><ScanLine size={14} /> Customers can also scan from inside the installed app: <a className="link" href={`${chosen}/#/scan`} target="_blank" rel="noreferrer">{chosen}/#/scan</a></p>
       <div className="qr-grid stagger">
         {state.tables.map((t) => (
           <div className="qr-card" key={t.id}>
             <div className="qr-table">Table {t.name}</div>
             {codes[t.id] ? <img src={codes[t.id]} alt={`QR for table ${t.name}`} /> : <div className="qr-ph" />}
-            <a className="link small" href={orderUrl(chosen, t.id)} target="_blank" rel="noreferrer">Open <ExternalLink size={12} /></a>
+            <div className="qr-actions">
+              <a className="link small" href={orderUrl(chosen, t.id)} target="_blank" rel="noreferrer">Open <ExternalLink size={12} /></a>
+              {codes[t.id] && <a className="link small" href={codes[t.id]} download={`Table-${t.name}-QR.png`}>PNG <Download size={12} /></a>}
+            </div>
           </div>
         ))}
       </div>

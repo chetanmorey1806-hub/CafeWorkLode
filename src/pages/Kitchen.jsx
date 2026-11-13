@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { PageHead, Empty } from '../components/UI';
 import { minutesAgo } from '../utils/helpers';
+import { modsLabel } from '../utils/menuOptions';
 
 const COLS = [
   { key: 'pending', title: 'New', icon: Clock3, next: 'preparing', action: 'Start Cooking' },
@@ -60,6 +61,7 @@ export default function Kitchen() {
                               <span className="kc-text"><b>{i.qty}×</b> {i.name}</span>
                             </button>
                           )}
+                          {modsLabel(i.mods) && <div className="kot-mods">{modsLabel(i.mods)}</div>}
                           {i.note && <div className="kot-note"><StickyNote size={12} /> {i.note}</div>}
                         </li>
                       ))}

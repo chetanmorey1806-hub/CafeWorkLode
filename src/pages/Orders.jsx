@@ -1,5 +1,6 @@
 import { Smartphone, Ban, Bike, ClipboardList, ConciergeBell, Pencil, ReceiptText, Search, ShoppingBag, UtensilsCrossed, Wallet } from 'lucide-react';
 import { useState } from 'react';
+import { modsLabel } from '../utils/menuOptions';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { PageHead, StatusBadge, Empty, SearchInput } from '../components/UI';
@@ -81,7 +82,7 @@ export default function Orders() {
                 <div className="muted small">{fmtDateTime(o.createdAt)}{o.customerName && ` · ${o.customerName}`}</div>
                 <ul className="oc-items">
                   {o.items.map((i, idx) => (
-                    <li key={idx}><span>{i.qty} × {i.name}</span><span>{money(i.qty * i.price, cur)}</span></li>
+                    <li key={idx}><span>{i.qty} × {i.name}{modsLabel(i.mods) && <small className="muted"> · {modsLabel(i.mods)}</small>}</span><span>{money(i.qty * i.price, cur)}</span></li>
                   ))}
                 </ul>
                 <div className="oc-total"><span>Total</span><b>{money(t.total, cur)}</b></div>

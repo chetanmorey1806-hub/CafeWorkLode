@@ -25,6 +25,24 @@ All devices stay in sync live. The default PIN is `1234`; a device with a differ
 Phones must be on the café Wi-Fi. To accept orders from anywhere, host the server online (any Node host or VPS,
 then set **Settings → QR Ordering → Public website address**).
 
+### Works without internet / without a server
+
+| Situation | What happens |
+|---|---|
+| Installed app (PWA) | Chrome/Android: **Install app** button (or browser menu → *Add to Home screen*). Opens full-screen like a native app. |
+| Customer loses internet | Cached menu still opens; cart is kept; the order is **queued and sent automatically** when back online. |
+| No server, one device | Staff tabs and the customer page in the **same browser** sync instantly via the BroadcastChannel API (sound + toast in the kitchen tab). |
+
+### More features
+
+* **Drink customiser** — milk (Oat +₹30, Almond +₹40…), sugar level, add-ons; live price. Edit options in *Settings → Item Customisation*.
+* **Happy hours & promo codes** — automatic % off during set hours; codes like `WELCOME50`, `COFFEE100`, `SAVE10`. Edit in *Settings → Happy Hours & Promo Codes*.
+* **Floor plan** — tables coloured Free / Ordered / Ready / **Bill requested** (customer taps *Request the bill*).
+* **UPI QR** — exact-amount UPI QR on the payment screen and the customer's phone.
+* **Split bill** — equally or **by item** (staff billing and customer phone).
+* **PDF bill & WhatsApp** — download a PDF (with ₹) or send the bill summary via WhatsApp.
+* **QR scanner** — `/#/scan` (camera on https/localhost, or *Scan from photo* anywhere). Table QR codes can be downloaded as PNG.
+
 ### Architecture
 
 | Part | Tech |

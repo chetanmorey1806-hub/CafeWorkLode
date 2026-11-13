@@ -17,6 +17,7 @@ import Expenses from './pages/Expenses';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import CustomerApp from './customer/CustomerApp';
+import Scanner from './customer/Scanner';
 import { installRipple } from './utils/helpers';
 import './styles.css';
 
@@ -57,10 +58,13 @@ const Routes_ = () => (
 // Customers who scan a table QR code (#/order/<tableId>) get the ordering page only —
 // no splash, no staff login, no access to the staff app's data.
 const isCustomer = location.hash.startsWith('#/order/');
+const isScanner = location.hash.startsWith('#/scan');
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {isCustomer ? (
+    {isScanner ? (
+      <Scanner />
+    ) : isCustomer ? (
       <CustomerApp />
     ) : (
       <StoreProvider>

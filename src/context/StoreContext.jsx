@@ -3,6 +3,7 @@ import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { seedData } from './seed';
 import { reducer, migrate } from './reducer';
 import { uid } from '../utils/helpers';
+import { SYNC_CHANNEL } from '../utils/pwa';
 
 const KEY = 'cafe-software-v1';
 const THEME_KEY = 'cafe-theme';
@@ -47,6 +48,23 @@ export function StoreProvider({ children }) {
 
   const stateRef = useRef(state);
   stateRef.current = state;
+  const connRef = useRef(conn);
+  connRef.current = conn;
+  const bcRef = useRef(null);
+
+  /* ---------------- same-browser tab sync (no server needed) ----------------
+     When the server isn't reachable, every tab of this browser (POS, kitchen screen,
+     customer QR page) shares changes instantly through the BroadcastChannel API. */
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return undefined;
+    const bc = new BroadcastChannel(SYNC_CHANNEL);
+    bc.onmessage = (e) => {
+      const m = e.data;
+      if (m?.type === 'action' && m.action && connRef.current !== 'online') localDispatch(m.action);
+    };
+    bcRef.current = bc;
+    return () => { bc.close(); bcRef.current = null; };
+  }, []);
   const wsRef = useRef(null);
   const pending = useRef([]); // actions sent but not yet confirmed by the server
   const seq = useRef(0);
@@ -138,7 +156,10 @@ export function StoreProvider({ children }) {
   const dispatch = useCallback((action) => {
     const a = withIds(action);
     localDispatch(a); // instant UI
-    send(a); // no-op when offline: data still saved locally
+    const sent = send(a); // server sync (no-op when offline: data still saved locally)
+    if (!sent && connRef.current !== 'online') {
+      try { bcRef.current?.postMessage({ type: 'action', action: a }); } catch { /* ignore */ }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

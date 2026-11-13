@@ -115,3 +115,55 @@
 .cx-row.muted { color: var(--muted); font-size: 13px; }
 .cx-row .ok { color: var(--ok); }
 .cx-upi { margin-top: 4px; }
+
+/* offline / queue / install */
+.cx-install { display: inline-flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); color: #fff; padding: 6px 10px; border-radius: 16px; font-weight: 600; font-size: 12px; }
+.cx-offline, .cx-queued { display: flex; gap: 8px; align-items: flex-start; margin: 12px 16px 0; padding: 11px 13px; border-radius: 12px; font-size: 13px; font-weight: 500; }
+.cx-offline { background: var(--warn-l); color: var(--text); }
+.cx-offline svg { color: var(--warn); flex: none; }
+.cx-queued { background: var(--info-l); color: var(--text); }
+.cx-queued svg { color: var(--info); flex: none; }
+
+/* happy hour banner */
+.cx-hh { display: flex; gap: 12px; align-items: center; margin: 12px 16px 0; padding: 13px 14px; border-radius: 16px; color: #fff; background: linear-gradient(120deg, #f3a33b, #e0592a, #c93a6b); background-size: 200% 100%; animation: cxshine 5s ease infinite; box-shadow: 0 8px 22px rgba(224, 89, 42, .3); }
+.cx-hh div div { font-size: 12.5px; opacity: .9; }
+@keyframes cxshine { 0%, 100% { background-position: 0 0; } 50% { background-position: 100% 0; } }
+
+.cx-mods { font-size: 12px; color: var(--brand); font-weight: 600; margin-top: 2px; }
+.cx-mods-inline { color: var(--muted); font-size: 12px; }
+.cx-item-pair svg { vertical-align: -1px; }
+
+/* promo */
+.cx-promo { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 8px 8px 8px 12px; border-radius: 12px; border: 1.5px dashed color-mix(in srgb, var(--brand) 50%, var(--border)); color: var(--brand); }
+.cx-promo input { border: none; background: none; padding: 6px 0; box-shadow: none !important; text-transform: uppercase; font-weight: 600; }
+.cx-promo button { border: none; background: var(--brand); color: #fff; font-weight: 700; padding: 8px 14px; border-radius: 9px; }
+.cx-promo button:disabled { opacity: .5; }
+.cx-promo-on { color: var(--text); font-size: 14px; }
+.cx-promo-on b { color: var(--ok); }
+.cx-promo-on div { font-size: 12px; color: var(--muted); }
+.cx-promo-err { color: var(--danger); font-size: 12.5px; margin-top: 6px; }
+.cx-totals .ok, .cx-row.ok { color: var(--ok); }
+
+/* tracker extras */
+.cx-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cx-btn.wa { color: #128c4b; border-color: #9fe0b7; }
+.cx-bill-req { display: flex; gap: 10px; align-items: center; margin-top: 10px; padding: 13px 14px; border-radius: 14px; background: var(--ok-l); color: var(--ok); font-weight: 600; animation: popIn .4s var(--ease); }
+.cx-sec-title { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 10px; }
+.cx-card.cx-upi { margin-top: 12px; display: grid; gap: 4px; justify-items: stretch; }
+.cx-card + .cx-card { margin-top: 12px; }
+.cx-track .cx-card { margin-top: 12px; }
+
+/* scanner */
+.scan { display: flex; flex-direction: column; gap: 12px; padding-bottom: 30px; }
+.scan > .cx-btn { width: calc(100% - 32px); margin: 0 16px; }
+.scan-wrap { position: relative; margin: 16px 16px 0; border-radius: 22px; overflow: hidden; background: #0d0907; aspect-ratio: 1; box-shadow: var(--shadow-lg); }
+.scan-box { width: 100%; height: 100%; }
+.scan-box video { width: 100% !important; height: 100% !important; object-fit: cover; }
+.scan-overlay { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 6px; color: #d9c6b4; text-align: center; }
+.scan-laser { position: absolute; left: 12%; right: 12%; height: 3px; top: 20%; background: linear-gradient(90deg, transparent, #f3a33b, transparent); box-shadow: 0 0 14px #f3a33b; animation: laser 2.2s ease-in-out infinite; }
+@keyframes laser { 0%, 100% { top: 18%; } 50% { top: 80%; } }
+.scan-err { display: flex; gap: 8px; margin: 0 16px; padding: 11px 13px; border-radius: 12px; background: var(--warn-l); font-size: 13px; }
+.scan-err svg { color: var(--warn); flex: none; }
+.scan-file { cursor: pointer; }
+.cx-row > span:first-child { flex-wrap: wrap; }
+.cx-mods-inline { flex-basis: 100%; padding-left: 20px; }

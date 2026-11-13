@@ -1,4 +1,4 @@
-import { Armchair, Check, Pencil, Plus, Settings2, Trash2, Users, QrCode, Smartphone } from 'lucide-react';
+import { Armchair, Check, Pencil, Plus, Settings2, Trash2, Users, QrCode, Smartphone, HandPlatter, ChefHat, ConciergeBell } from 'lucide-react';
 import QrCodesModal from '../components/QrCodes';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +29,16 @@ export default function Tables() {
   };
 
   const free = state.tables.filter((t) => !activeFor(t.id)).length;
+  // floor-plan colour: free (green) → ordered (amber) → ready/served (blue) → bill requested (red)
+  const statusOf = (o) => (!o ? 'free' : o.billRequested ? 'bill' : ['ready', 'served'].includes(o.status) ? 'served' : 'ordered');
+  const STATUS = {
+    free: { label: 'Free', icon: Plus },
+    ordered: { label: 'Ordered', icon: ChefHat },
+    served: { label: 'Ready / served', icon: ConciergeBell },
+    bill: { label: 'Bill requested', icon: HandPlatter },
+  };
+  const counts = state.tables.reduce((m, t) => { const k = statusOf(activeFor(t.id)); m[k] = (m[k] || 0) + 1; return m; }, {});
+  const running = state.tables.reduce((s, t) => { const o = activeFor(t.id); return s + (o ? orderTotals(o).total : 0); }, 0);
 
   return (
     <div>
@@ -41,11 +51,18 @@ export default function Tables() {
       </PageHead>
       {qr && <QrCodesModal onClose={() => setQr(false)} />}
 
+      <div className="floor-legend">
+        {Object.entries(STATUS).map(([k, v]) => (
+          <span key={k} className={`fl-chip fl-${k}`}><v.icon size={14} /> {v.label} <b>{counts[k] || 0}</b></span>
+        ))}
+        <span className="fl-total">Running bills: <b>{money(running, cur)}</b></span>
+      </div>
+
       <div className="table-grid stagger">
         {state.tables.map((t) => {
           const o = activeFor(t.id);
           return (
-            <div key={t.id} className={`table-tile ${o ? 'busy' : 'free'}`}>
+            <div key={t.id} className={`table-tile ${o ? 'busy' : 'free'} st-${statusOf(o)}`}>
               <button className="tt-main" onClick={() => nav(o ? `/pos/${o.id}` : `/pos?table=${t.id}`)}>
                 <div className="tt-name">{t.name}</div>{o && <span className="tt-pulse" />}
                 <div className="tt-seats flex-c"><Users size={13} /> {t.seats} seats</div>
@@ -53,6 +70,7 @@ export default function Tables() {
                   <>
                     <div className="tt-amt">{money(orderTotals(o).total, cur)}</div>
                     <div className="tt-info flex-c">#{o.no} · {minutesAgo(o.createdAt)}m{o.source === 'qr' && <span className="badge badge-purple"><Smartphone size={11} /> QR</span>}</div>
+                    {o.billRequested && <div className="tt-bill"><HandPlatter size={13} /> Bill requested {minutesAgo(o.billRequestedAt)}m ago</div>}
                     <StatusBadge status={o.status} />
                   </>
                 ) : (
