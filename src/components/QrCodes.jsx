@@ -7,18 +7,21 @@ import { Modal, Field } from './UI';
 /** Works out the address customers' phones should open (never "localhost"). */
 export function useOrderBaseUrl() {
   const { state } = useStore();
-  const [lanIps, setLanIps] = useState([]);
+  const [info, setInfo] = useState({ lanIps: [] });
   useEffect(() => {
-    fetch('/api/info').then((r) => r.json()).then((d) => setLanIps(d.lanIps || [])).catch(() => {});
+    fetch('/api/info').then((r) => r.json()).then(setInfo).catch(() => {});
   }, []);
-  const port = location.port ? `:${location.port}` : '';
+  // Customers' phones always get the plain http address (no certificate needed to order).
+  // When this page itself is opened over https (installed staff app), use the server's http port.
+  const secure = location.protocol === 'https:';
+  const port = secure ? (info.port ? `:${info.port}` : '') : location.port ? `:${location.port}` : '';
   const local = ['localhost', '127.0.0.1'].includes(location.hostname);
   const options = [
     ...(state.settings.publicUrl ? [state.settings.publicUrl.replace(/\/+$/, '')] : []),
-    ...(!local ? [location.origin] : []),
-    ...lanIps.map((ip) => `${location.protocol}//${ip}${port}`),
+    ...(!local && !secure ? [location.origin] : []),
+    ...(info.lanIps || []).map((ip) => `http://${ip}${port}`),
   ];
-  return { options: [...new Set(options)], fallback: location.origin };
+  return { options: [...new Set(options)], fallback: secure ? `http://${location.hostname}${port}` : location.origin, info };
 }
 
 export const orderUrl = (base, tableId) => `${base}/#/order/${tableId}`;

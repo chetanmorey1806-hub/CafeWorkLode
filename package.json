@@ -9,7 +9,8 @@
     "dev:all": "node scripts/dev-all.js",
     "build": "vite build",
     "start": "vite build && node server/index.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "make-cert": "node scripts/make-cert.js"
   },
   "dependencies": {
     "express": "^4.21.1",

@@ -9,6 +9,7 @@ import { todayStr, chime } from '../utils/helpers';
 import { seedData } from '../context/seed';
 import { QrSettings, LoyaltySettings } from './SettingsAdvanced';
 import { OffersSettings, ModifiersSettings } from './SettingsOffers';
+import { InstallSettings } from './SettingsInstall';
 
 const Toggle = ({ icon: Icon, title, desc, checked, onChange }) => (
   <div className="pref-row">
@@ -138,6 +139,9 @@ export default function Settings() {
       <div className="grid-settings stagger mt-lg">
         <OffersSettings />
         <ModifiersSettings />
+      </div>
+      <div className="grid-settings stagger mt-lg">
+        <InstallSettings />
       </div>
     </div>
   );

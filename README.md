@@ -14,6 +14,22 @@ npm run dev        # frontend only (offline mode, data stays in this browser)
 Open the app on the café computer, tablets (kitchen screen) and phones using the **Network** address the server prints.
 All devices stay in sync live. The default PIN is `1234`; a device with a different PIN shows **Enter PIN** in the top bar.
 
+### Install the app on phones & tablets
+
+Phones only allow installing over **https**. One-time setup on the café computer:
+
+```bash
+npm run make-cert   # creates a local certificate for this PC's Wi-Fi IP (re-run if the IP changes)
+npm start           # serves http://<pc-ip>:4000 and https://<pc-ip>:4443
+```
+
+Then open **Settings → Install the app on phones** in the app and follow the two QR codes on each phone:
+1. Scan QR 1 → install the café certificate (once per phone).
+2. Scan QR 2 → Chrome: *Install app* / Safari: *Share → Add to Home Screen*.
+
+Customers don't need this — table QR codes use the plain http address. Tip: reserve the PC's IP in the Wi-Fi router so it never changes.
+Hosting online instead? Use any Node host with HTTPS and a **persistent disk** for `server/data` (free tiers that wipe files on restart will lose your data).
+
 ### QR ordering
 
 1. **Tables → QR Codes → Print all**, then stick one QR on each table.

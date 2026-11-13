@@ -11,6 +11,7 @@
  */
 import express from 'express';
 import http from 'node:http';
+import https from 'node:https';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -26,6 +27,9 @@ const PORT = Number(process.env.PORT) || 4000;
 const DATA_DIR = path.join(__dir, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const DIST = path.join(__dir, '..', 'dist');
+const CERTS = path.join(__dir, 'certs');
+const HTTPS_PORT = Number(process.env.HTTPS_PORT) || 4443;
+const hasCerts = fs.existsSync(path.join(CERTS, 'server.key')) && fs.existsSync(path.join(CERTS, 'server.crt'));
 
 /* ------------------------------------------------------------------ storage */
 let state;
@@ -96,7 +100,18 @@ app.use(express.json({ limit: '10mb' }));
 app.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
 app.get('/api/health', (req, res) => res.json({ ok: true, version }));
-app.get('/api/info', (req, res) => res.json({ lanIps: lanUrls(0).map((u) => u.replace(/^http:\/\//, '').replace(/:0$/, '')), port: PORT }));
+app.get('/api/info', (req, res) => res.json({
+  lanIps: lanUrls(0).map((u) => u.replace(/^http:\/\//, '').replace(/:0$/, '')), port: PORT, httpsPort: hasCerts ? HTTPS_PORT : null, built: fs.existsSync(DIST),
+}));
+
+// phones download & install this once so they trust the café's https address (needed to install the app)
+app.get('/ca.crt', (req, res) => {
+  const ca = path.join(CERTS, 'ca.crt');
+  if (!fs.existsSync(ca)) return res.status(404).send('Run "npm run make-cert" on the café computer first.');
+  res.set('Content-Type', 'application/x-x509-ca-cert');
+  res.set('Content-Disposition', 'attachment; filename="SoffityCafe-CA.crt"');
+  res.sendFile(ca);
+});
 
 app.get('/api/public/menu', (req, res) => {
   res.json(publicMenu(state, req.query.table));
@@ -149,7 +164,24 @@ if (fs.existsSync(DIST)) app.use(express.static(DIST));
 
 /* ------------------------------------------------------------------ WebSocket */
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const httpsServer = hasCerts
+  ? https.createServer({ key: fs.readFileSync(path.join(CERTS, 'server.key')), cert: fs.readFileSync(path.join(CERTS, 'server.crt')) }, app)
+  : null;
+const wss = new WebSocketServer({ noServer: true });
+[server, httpsServer].filter(Boolean).forEach((srv) => srv.on('upgrade', (req, socket, head) => {
+  if (!req.url.startsWith('/ws')) return socket.destroy();
+  wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+}));
+
+// slow down PIN guessing: 8 wrong PINs from one address → blocked for 10 minutes
+const pinFails = new Map();
+const isLocal = (ip) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip);
+const pinBlocked = (ip) => { if (isLocal(ip)) return false; const f = pinFails.get(ip); return f && f.count >= 8 && Date.now() - f.first < 10 * 60 * 1000; };
+const pinFail = (ip) => {
+  const f = pinFails.get(ip);
+  if (!f || Date.now() - f.first > 10 * 60 * 1000) pinFails.set(ip, { count: 1, first: Date.now() });
+  else f.count++;
+};
 
 wss.on('connection', (ws, req) => {
   const q = new URL(req.url, 'http://x').searchParams;
@@ -168,10 +200,13 @@ wss.on('connection', (ws, req) => {
   }
 
   // staff device
-  if (String(q.get('pin') || '') !== String(state.settings.pin || '')) {
+  const ip = req.socket.remoteAddress;
+  if (pinBlocked(ip) || String(q.get('pin') || '') !== String(state.settings.pin || '')) {
+    if (!pinBlocked(ip)) pinFail(ip);
     ws.send(JSON.stringify({ type: 'auth-failed' }));
     return ws.close(4001, 'bad pin');
   }
+  pinFails.delete(ip);
   ws.ack = 0;
   staff.add(ws);
   ws.send(JSON.stringify({ type: 'hello', state, version, fresh, ack: 0 }));
@@ -209,3 +244,13 @@ server.listen(PORT, '0.0.0.0', () => {
   lanUrls(PORT).forEach((u) => console.log(`   Network: ${u}`));
   if (!fs.existsSync(DIST)) console.log('   (dev mode: open the Vite URL — it proxies /api and /ws here)');
 });
+
+if (httpsServer) {
+  httpsServer.listen(HTTPS_PORT, '0.0.0.0', () => {
+    console.log(`\n🔒 HTTPS (install the app on phones) on port ${HTTPS_PORT}`);
+    lanUrls(HTTPS_PORT).forEach((u) => console.log(`   ${u.replace('http:', 'https:')}`));
+    console.log(`   Phones: first install the certificate from http://<this-pc>:${PORT}/ca.crt`);
+  });
+} else {
+  console.log('\n   Tip: run "npm run make-cert" to enable https so phones can install the app.');
+}

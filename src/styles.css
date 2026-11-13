@@ -1149,3 +1149,14 @@ h4 { margin: 0 0 6px; font-size: 14px; }
   .promo-row-edit { grid-template-columns: 1fr 1fr 1fr; }
   .fl-total { margin-left: 0; width: 100%; }
 }
+
+/* install-on-phones card */
+.inst-ok { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--ok-l); color: var(--ok); font-weight: 600; margin-bottom: 10px; }
+.inst-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 12px 0; }
+.inst-step { position: relative; display: grid; grid-template-columns: 130px 1fr; gap: 12px; align-items: start; padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--card-2); }
+.inst-step ol { margin: 6px 0; padding-left: 18px; font-size: 13px; color: var(--text-2); display: grid; gap: 3px; }
+.inst-qr { width: 130px; height: 130px; border-radius: 10px; background: #fff; padding: 4px; }
+.inst-n { position: absolute; top: -10px; left: -10px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--brand-2), var(--brand)); box-shadow: var(--shadow); }
+.inst-step .link { word-break: break-all; }
+@media (max-width: 1100px) { .inst-steps { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .inst-step { grid-template-columns: 1fr; justify-items: start; } }
